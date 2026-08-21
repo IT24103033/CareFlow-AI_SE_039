@@ -1,0 +1,22 @@
+# Environments
+.env
+appsettings.Development.json
+
+# Node / React
+node_modules/
+build/
+dist/
+
+# .NET / C#
+bin/
+obj/
+
+# Flutter / Dart
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# OS generated files
+.DS_Store
+Thumbs.db
