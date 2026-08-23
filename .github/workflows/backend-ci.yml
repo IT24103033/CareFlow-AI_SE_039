@@ -20,7 +20,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore Dependencies
-      run: dotnet restore backend-api/CareFlowAI.API/CareFlowAI.API.csproj
+      run: dotnet restore backend-api/CareFlowAI.API.csproj
 
     - name: Build Solution
-      run: dotnet build backend-api/CareFlowAI.API/CareFlowAI.API.csproj --no-restore --configuration Release
+      run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
