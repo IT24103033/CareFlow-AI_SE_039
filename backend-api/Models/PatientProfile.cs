@@ -7,7 +7,7 @@ namespace CareFlowAI.API.Models
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public string FullName { get; set; } = string.Empty;
-        public DateTime DateOfBirth { get; set; }
+        public DateOnly DateOfBirth { get; set; }
         public string BloodGroup { get; set; } = string.Empty;
         public string MedicalHistorySummary { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

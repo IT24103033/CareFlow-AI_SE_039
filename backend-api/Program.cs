@@ -11,6 +11,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// 1. Create the CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader());
+});
 
 var app = builder.Build();
 
@@ -23,6 +31,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// 2. ACTIVATE the CORS policy (This was the missing piece!)
+app.UseCors("AllowReactApp");
+
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
