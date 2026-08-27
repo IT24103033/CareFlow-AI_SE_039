@@ -1,0 +1,26 @@
+name: ASP.NET Core Backend CI
+
+on:
+  push:
+    branches: [ "main", "develop", "feature/**" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore backend-api/CareFlowAI.API.csproj
+
+    - name: Build Solution
+      run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
