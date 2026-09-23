@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
 import AiAnalysis from './pages/AiAnalysis';
+import PatientHistorySearch from './pages/PatientHistorySearch';
 import TriageReview from './pages/TriageReview';
 // ── Component D: Pharmacy (Amodhya) ──────────────────────────────────────────
 import InventoryManagement from './pages/InventoryManagement';
@@ -18,13 +19,14 @@ function App() {
         <Link to="/" style={{ ...navLink, color: '#fff', fontSize: 17, marginRight: 28 }}>
           🏥 CareFlow AI
         </Link>
-        <Link to="/wards"         style={{ ...navLink, color: '#a9b4d4' }}>Ward Management</Link>
-        <Link to="/patients"      style={{ ...navLink, color: '#a9b4d4' }}>Patient Registration</Link>
-        <Link to="/triage"        style={{ ...navLink, color: '#a9b4d4' }}>Triage Review</Link>
-        <Link to="/ai-analysis"   style={{ ...navLink, color: '#c3b1e1' }}>AI Analysis</Link>
+        <Link to="/wards"          style={{ ...navLink, color: '#a9b4d4' }}>Ward Management</Link>
+        <Link to="/patients"       style={{ ...navLink, color: '#a9b4d4' }}>Patient Registration</Link>
+        <Link to="/triage"         style={{ ...navLink, color: '#a9b4d4' }}>Triage Review</Link>
+        <Link to="/ai-analysis"    style={{ ...navLink, color: '#c3b1e1' }}>AI Analysis</Link>
+        <Link to="/history-search" style={{ ...navLink, color: '#c3b1e1' }}>History Search</Link>
         {/* Component D links */}
-        <Link to="/inventory"     style={{ ...navLink, color: '#c3b1e1' }}>💊 Inventory</Link>
-        <Link to="/prescriptions" style={{ ...navLink, color: '#c3b1e1' }}>📋 Prescriptions</Link>
+        <Link to="/inventory"      style={{ ...navLink, color: '#c3b1e1' }}>💊 Inventory</Link>
+        <Link to="/prescriptions"  style={{ ...navLink, color: '#c3b1e1' }}>📋 Prescriptions</Link>
       </nav>
 
       {/* Page routes */}
@@ -35,13 +37,14 @@ function App() {
             <p>Select a module from the navigation above.</p>
           </div>
         } />
-        <Route path="/wards"         element={<WardManagement />} />
-        <Route path="/patients"      element={<PatientManagement />} />
-        <Route path="/triage"        element={<TriageReview />} />
-        <Route path="/ai-analysis"   element={<AiAnalysis />} />
+        <Route path="/wards"          element={<WardManagement />} />
+        <Route path="/patients"       element={<PatientManagement />} />
+        <Route path="/triage"         element={<TriageReview />} />
+        <Route path="/ai-analysis"    element={<AiAnalysis />} />
+        <Route path="/history-search" element={<PatientHistorySearch />} />
         {/* ── Component D: Pharmacy ─────────────────────────────────────── */}
-        <Route path="/inventory"     element={<InventoryManagement />} />
-        <Route path="/prescriptions" element={<PrescriptionManagement />} />
+        <Route path="/inventory"      element={<InventoryManagement />} />
+        <Route path="/prescriptions"  element={<PrescriptionManagement />} />
       </Routes>
     </Router>
   );
