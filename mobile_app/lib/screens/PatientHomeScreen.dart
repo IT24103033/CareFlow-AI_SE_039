@@ -1,93 +1,233 @@
 import 'package:flutter/material.dart';
-import '../services/ApiService.dart';
 import '../models/PatientProfile.dart';
+import '../services/ApiService.dart';
+import '../models/Ward.dart';
 import 'MobileWardStatus.dart';
+import 'LoginScreen.dart';
 
-class PatientHomeScreen extends StatefulWidget {
-  const PatientHomeScreen({super.key});
+class PatientHomeScreen extends StatelessWidget {
+  final PatientProfile patient;
+  const PatientHomeScreen({super.key, required this.patient});
 
   @override
-  State<PatientHomeScreen> createState() => _PatientHomeScreenState();
+  Widget build(BuildContext context) {
+    return _PatientScaffold(patient: patient);
+  }
 }
 
-class _PatientHomeScreenState extends State<PatientHomeScreen> {
+class _PatientScaffold extends StatefulWidget {
+  final PatientProfile patient;
+  const _PatientScaffold({required this.patient});
+
+  @override
+  State<_PatientScaffold> createState() => _PatientScaffoldState();
+}
+
+class _PatientScaffoldState extends State<_PatientScaffold> {
   int _selectedIndex = 0;
+  final _primaryTeal = const Color(0xFF0AB39C);
 
-  // The two screens we can navigate between
-  final List<Widget> _screens = [
-    const ProfileView(), // We will extract the profile into this widget below
-    const MobileWardStatus(),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      _ProfileView(patient: widget.patient),
+      const MobileWardStatus(),
+    ];
+
     return Scaffold(
-      body: _screens[_selectedIndex],
+      backgroundColor: const Color(0xFFF0FAFA),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        onTap: (i) => setState(() => _selectedIndex = i),
+        selectedItemColor: _primaryTeal,
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.white,
+        elevation: 8,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.bed), label: 'Wards'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'My Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.bed_outlined), activeIcon: Icon(Icons.bed), label: 'Wards'),
         ],
+      ),
+      body: screens[_selectedIndex],
+    );
+  }
+}
+
+class _ProfileView extends StatelessWidget {
+  final PatientProfile patient;
+  final _primaryTeal = const Color(0xFF0AB39C);
+
+  const _ProfileView({required this.patient});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0FAFA),
+      appBar: AppBar(
+        title: const Text('My Medical Profile',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+        backgroundColor: const Color(0xFF0AB39C),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to log out?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        );
+                      },
+                      child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Hero card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF0AB39C), const Color(0xFF08907D)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    child: const Icon(Icons.person, size: 36, color: Colors.white),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(patient.fullName,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('Blood Group: ${patient.bloodGroup}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Medical history card
+            _InfoCard(
+              icon: Icons.history_edu_rounded,
+              title: 'Medical History',
+              content: patient.medicalHistorySummary.isNotEmpty
+                  ? patient.medicalHistorySummary
+                  : 'No medical history on record.',
+            ),
+
+            const SizedBox(height: 16),
+
+            // Blood group card
+            _InfoCard(
+              icon: Icons.bloodtype_rounded,
+              title: 'Blood Group',
+              content: patient.bloodGroup,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// Extracted from Day 9 code for clean tabs
-class ProfileView extends StatefulWidget {
-  const ProfileView({super.key});
+class _InfoCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String content;
 
-  @override
-  State<ProfileView> createState() => _ProfileViewState();
-}
-
-class _ProfileViewState extends State<ProfileView> {
-  final ApiService _apiService = ApiService();
-  late Future<PatientProfile?> _patientProfileFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _patientProfileFuture = _apiService.fetchPatientProfile('Test User');
-  }
+  const _InfoCard({required this.icon, required this.title, required this.content});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Medical Profile'), backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-      body: FutureBuilder<PatientProfile?>(
-        future: _patientProfileFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-          if (!snapshot.hasData || snapshot.data == null) return const Center(child: Text('No patient profile found.'));
-
-          final patient = snapshot.data!;
-          return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const CircleAvatar(radius: 40, backgroundColor: Colors.blueAccent, child: Icon(Icons.person, size: 50, color: Colors.white)),
-                const SizedBox(height: 20),
-                Text('Name: ${patient.fullName}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                const Divider(),
-                Text('Blood Group: ${patient.bloodGroup}', style: const TextStyle(fontSize: 18)),
-                const SizedBox(height: 10),
-                const Text('Medical History:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(patient.medicalHistorySummary, style: const TextStyle(fontSize: 16)),
-              ],
-            ),
-          );
-        },
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: const Color(0xFF0AB39C), size: 20),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: Color(0xFF212529))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(content, style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.5)),
+        ],
       ),
     );
   }

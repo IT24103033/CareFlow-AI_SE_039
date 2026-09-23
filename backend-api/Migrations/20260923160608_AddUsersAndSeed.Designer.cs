@@ -3,6 +3,7 @@ using System;
 using CareFlowAI.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CareFlowAI.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923160608_AddUsersAndSeed")]
+    partial class AddUsersAndSeed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -55,156 +58,6 @@ namespace CareFlowAI.API.Migrations
                     b.HasIndex("WardId");
 
                     b.ToTable("Admissions");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.AgentWorkflowState", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AgentName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("AgentStatus")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("Idle");
-
-                    b.Property<string>("ApprovalStatus")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("Pending");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("text");
-
-                    b.Property<string>("InputPayload")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("OutputPayload")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("TriageRecordId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TriageRecordId");
-
-                    b.ToTable("AgentWorkflows");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.Appointment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly>("AppointmentDate")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("DoctorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time without time zone");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time without time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("Tentative");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DoctorId");
-
-                    b.HasIndex("PatientId");
-
-                    b.ToTable("Appointments");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.Doctor", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Specialization")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Doctors");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.DoctorAvailability", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly>("Date")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("DoctorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<TimeOnly>("EndTime")
-                        .HasColumnType("time without time zone");
-
-                    b.Property<TimeOnly>("StartTime")
-                        .HasColumnType("time without time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DoctorId");
-
-                    b.ToTable("DoctorAvailabilities");
                 });
 
             modelBuilder.Entity("CareFlowAI.API.Models.PatientProfile", b =>
@@ -329,55 +182,6 @@ namespace CareFlowAI.API.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CareFlowAI.API.Models.TriageRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AssignedDoctorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("DoctorNotes")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SeverityLevel")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("Medium");
-
-                    b.Property<string>("Symptoms")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("TriageStatus")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
-                        .HasDefaultValue("Pending");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PatientId");
-
-                    b.ToTable("TriageRecords");
-                });
-
             modelBuilder.Entity("CareFlowAI.API.Models.Ward", b =>
                 {
                     b.Property<Guid>("Id")
@@ -456,73 +260,9 @@ namespace CareFlowAI.API.Migrations
                     b.Navigation("Ward");
                 });
 
-            modelBuilder.Entity("CareFlowAI.API.Models.AgentWorkflowState", b =>
-                {
-                    b.HasOne("CareFlowAI.API.Models.TriageRecord", "TriageRecord")
-                        .WithMany("AgentWorkflows")
-                        .HasForeignKey("TriageRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TriageRecord");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.Appointment", b =>
-                {
-                    b.HasOne("CareFlowAI.API.Models.Doctor", "Doctor")
-                        .WithMany("Appointments")
-                        .HasForeignKey("DoctorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CareFlowAI.API.Models.PatientProfile", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Doctor");
-
-                    b.Navigation("Patient");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.DoctorAvailability", b =>
-                {
-                    b.HasOne("CareFlowAI.API.Models.Doctor", "Doctor")
-                        .WithMany("Availabilities")
-                        .HasForeignKey("DoctorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Doctor");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.TriageRecord", b =>
-                {
-                    b.HasOne("CareFlowAI.API.Models.PatientProfile", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Patient");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.Doctor", b =>
-                {
-                    b.Navigation("Appointments");
-
-                    b.Navigation("Availabilities");
-                });
-
             modelBuilder.Entity("CareFlowAI.API.Models.PatientProfile", b =>
                 {
                     b.Navigation("Admissions");
-                });
-
-            modelBuilder.Entity("CareFlowAI.API.Models.TriageRecord", b =>
-                {
-                    b.Navigation("AgentWorkflows");
                 });
 #pragma warning restore 612, 618
         }

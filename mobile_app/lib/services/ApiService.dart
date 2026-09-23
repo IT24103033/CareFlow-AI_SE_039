@@ -4,18 +4,19 @@ import '../models/PatientProfile.dart';
 import '../models/Ward.dart';
 
 class ApiService {
-  // Since we are testing in Chrome, localhost works perfectly. 
-  // (If you ever test on an Android Emulator, change this to 10.0.2.2)
-  static const String baseUrl = 'http://localhost:5241/api';
+  // Use 10.0.2.2 for Android Emulator, localhost for Chrome web target
+  static const String baseUrl = 'http://10.0.2.2:5241/api';
 
-  Future<PatientProfile?> fetchPatientProfile(String name) async {
+  /// Login: searches for a patient by full name as their identifier
+  Future<PatientProfile?> loginPatient(String fullName) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/PatientProfiles/search?name=$name'));
-      
+      final response = await http.get(
+        Uri.parse('$baseUrl/PatientProfiles/search?name=${Uri.encodeComponent(fullName)}'),
+      );
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
         if (data.isNotEmpty) {
-          return PatientProfile.fromJson(data[0]); // Return the first match
+          return PatientProfile.fromJson(data[0]);
         }
       }
       return null;
@@ -24,10 +25,13 @@ class ApiService {
     }
   }
 
+  Future<PatientProfile?> fetchPatientProfile(String name) async {
+    return loginPatient(name);
+  }
+
   Future<List<Ward>> fetchWards() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/Wards'));
-      
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
         return data.map((json) => Ward.fromJson(json)).toList();

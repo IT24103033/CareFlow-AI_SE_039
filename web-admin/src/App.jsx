@@ -1,4 +1,13 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+import Login from './pages/Login';
+import SidebarLayout from './components/SidebarLayout';
+import AdminDashboard from './pages/AdminDashboard';
+import DoctorDashboard from './pages/DoctorDashboard';
+import ManagePatients from './pages/staff/ManagePatients';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
 import AiAnalysis from './pages/AiAnalysis';
@@ -7,46 +16,91 @@ import TriageReview from './pages/TriageReview';
 // ── Component D: Pharmacy (Amodhya) ──────────────────────────────────────────
 import InventoryManagement from './pages/InventoryManagement';
 import PrescriptionManagement from './pages/PrescriptionManagement';
+
 import './App.css';
 
-const navLink = { textDecoration: 'none', color: '#0066cc', fontWeight: 'bold', marginRight: '20px' };
+// Navigation links for the sidebar based on role
+const staffLinks = [
+  { path: '/staff/patients', label: 'Patient Details', icon: '👤' },
+  { path: '/staff/triage', label: 'Triage & Intake Queue', icon: '🩺' },
+  { path: '/staff/wards', label: 'Wards', icon: '🛏️' },
+  { path: '/staff/pharmacy', label: 'Pharmacy & Inventory', icon: '💊' },
+  { path: '/staff/prescriptions', label: 'Prescriptions', icon: '📋' },
+  { path: '/staff/history-search', label: 'History Search', icon: '🔍' },
+  { path: '/staff/ai-analysis', label: 'AI Analysis', icon: '🤖' },
+  { path: '/staff/appointments', label: 'Appointments', icon: '📅' }
+];
+
+const adminLinks = [
+  { path: '/admin', label: 'Dashboard', icon: '📊' },
+];
+
+const doctorLinks = [
+  { path: '/doctor/dashboard', label: 'Dashboard', icon: '👥' },
+  { path: '/doctor/triage', label: 'Triage Review', icon: '🩺' },
+  { path: '/doctor/prescriptions', label: 'Prescriptions', icon: '📋' },
+];
 
 function App() {
   return (
-    <Router>
-      {/* Top navigation bar */}
-      <nav style={{ padding: '15px 24px', background: '#1a1a2e', borderBottom: '3px solid #6c63ff', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-        <Link to="/" style={{ ...navLink, color: '#fff', fontSize: 17, marginRight: 28 }}>
-          🏥 CareFlow AI
-        </Link>
-        <Link to="/wards"          style={{ ...navLink, color: '#a9b4d4' }}>Ward Management</Link>
-        <Link to="/patients"       style={{ ...navLink, color: '#a9b4d4' }}>Patient Registration</Link>
-        <Link to="/triage"         style={{ ...navLink, color: '#a9b4d4' }}>Triage Review</Link>
-        <Link to="/ai-analysis"    style={{ ...navLink, color: '#c3b1e1' }}>AI Analysis</Link>
-        <Link to="/history-search" style={{ ...navLink, color: '#c3b1e1' }}>History Search</Link>
-        {/* Component D links */}
-        <Link to="/inventory"      style={{ ...navLink, color: '#c3b1e1' }}>💊 Inventory</Link>
-        <Link to="/prescriptions"  style={{ ...navLink, color: '#c3b1e1' }}>📋 Prescriptions</Link>
-      </nav>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['Admin']}>
+              <SidebarLayout role="Admin" links={adminLinks} />
+            </ProtectedRoute>
+          }>
+            <Route index element={<AdminDashboard />} />
+          </Route>
 
-      {/* Page routes */}
-      <Routes>
-        <Route path="/" element={
-          <div style={{ padding: '20px' }}>
-            <h2>Welcome to CareFlow AI</h2>
-            <p>Select a module from the navigation above.</p>
-          </div>
-        } />
-        <Route path="/wards"          element={<WardManagement />} />
-        <Route path="/patients"       element={<PatientManagement />} />
-        <Route path="/triage"         element={<TriageReview />} />
-        <Route path="/ai-analysis"    element={<AiAnalysis />} />
-        <Route path="/history-search" element={<PatientHistorySearch />} />
-        {/* ── Component D: Pharmacy ─────────────────────────────────────── */}
-        <Route path="/inventory"      element={<InventoryManagement />} />
-        <Route path="/prescriptions"  element={<PrescriptionManagement />} />
-      </Routes>
-    </Router>
+          {/* Doctor Routes */}
+          <Route path="/doctor" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Admin']}>
+              <SidebarLayout role="Doctor Staff" links={doctorLinks} />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="/doctor/dashboard" replace />} />
+            <Route path="dashboard" element={<DoctorDashboard />} />
+            <Route path="triage" element={<TriageReview />} />
+            <Route path="prescriptions" element={<PrescriptionManagement />} />
+          </Route>
+
+          {/* Staff Routes */}
+          <Route path="/staff" element={
+            <ProtectedRoute allowedRoles={['Staff', 'Admin']}>
+              <SidebarLayout role="Hospital Staff" links={staffLinks} />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="/staff/patients" replace />} />
+            <Route path="patients" element={<ManagePatients />} />
+            <Route path="wards" element={<WardManagement />} />
+            <Route path="triage" element={<TriageReview />} />
+            <Route path="pharmacy" element={<InventoryManagement />} />
+            <Route path="prescriptions" element={<PrescriptionManagement />} />
+            <Route path="history-search" element={<PatientHistorySearch />} />
+            <Route path="ai-analysis" element={<AiAnalysis />} />
+            <Route path="*" element={<div className="placeholder-view">Feature Coming Soon</div>} />
+          </Route>
+
+          {/* Direct routes for backward compatibility */}
+          <Route path="/triage" element={<TriageReview />} />
+          <Route path="/inventory" element={<InventoryManagement />} />
+          <Route path="/prescriptions" element={<PrescriptionManagement />} />
+          <Route path="/wards" element={<WardManagement />} />
+          <Route path="/patients" element={<PatientManagement />} />
+          <Route path="/ai-analysis" element={<AiAnalysis />} />
+          <Route path="/history-search" element={<PatientHistorySearch />} />
+
+          {/* Fallback routing */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
