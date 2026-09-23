@@ -1,4 +1,5 @@
 using CareFlowAI.API.Data;
+using CareFlowAI.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Register the Planning Agent bridge service (AI logic lives in ai-orchestrator/Agents/)
+builder.Services.AddScoped<PlanningAgentService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
