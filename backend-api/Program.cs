@@ -15,6 +15,9 @@ builder.Services.AddScoped<PlanningAgentService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Component D: Pharmacy AI Validation/Safety Agent
+builder.Services.AddSingleton<PharmacyAiService>();
+
 // 1. Create the CORS policy
 builder.Services.AddCors(options =>
 {
