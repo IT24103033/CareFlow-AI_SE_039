@@ -1,5 +1,6 @@
 using CareFlowAI.API.Data;
 using Microsoft.EntityFrameworkCore;
+using CareFlowAI.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +12,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 1. Create the CORS policy
+builder.Services.AddScoped<DoctorAvailabilityService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
