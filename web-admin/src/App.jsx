@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
+import AiAnalysis from './pages/AiAnalysis';
+import PatientHistorySearch from './pages/PatientHistorySearch';
 import './App.css';
 
 function App() {
@@ -18,6 +20,12 @@ function App() {
         <Link to="/patients" style={{ marginRight: '20px', textDecoration: 'none', color: '#0066cc', fontWeight: 'bold' }}>
           Patient Registration
         </Link>
+        <Link to="/ai-analysis" style={{ marginRight: '20px', textDecoration: 'none', color: '#6f42c1', fontWeight: 'bold' }}>
+          AI Analysis
+        </Link>
+        <Link to="/history-search" style={{ marginRight: '20px', textDecoration: 'none', color: '#0056b3', fontWeight: 'bold' }}>
+          History Search
+        </Link>
       </nav>
 
       {/* These are the different pages we can navigate to */}
@@ -25,6 +33,8 @@ function App() {
         <Route path="/" element={<div style={{ padding: '20px' }}><h2>Welcome to CareFlow AI</h2><p>Select a module from the navigation above.</p></div>} />
         <Route path="/wards" element={<WardManagement />} />
         <Route path="/patients" element={<PatientManagement />} />
+        <Route path="/ai-analysis" element={<AiAnalysis />} />
+        <Route path="/history-search" element={<PatientHistorySearch />} />
       </Routes>
     </Router>
   );
