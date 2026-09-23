@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/PatientHomeScreen.dart';
+import 'screens/LoginScreen.dart';
 
 void main() {
   runApp(const CareFlowMobileApp());
@@ -13,10 +13,14 @@ class CareFlowMobileApp extends StatelessWidget {
     return MaterialApp(
       title: 'CareFlow AI',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0AB39C),
+          brightness: Brightness.light,
+        ),
+        fontFamily: 'Roboto',
       ),
-      home: const PatientHomeScreen(),
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
