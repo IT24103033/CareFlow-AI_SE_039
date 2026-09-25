@@ -21,6 +21,10 @@ namespace CareFlowAI.API.Data
         public DbSet<Doctor> Doctors { get; set; }
         public DbSet<DoctorAvailability> DoctorAvailabilities { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
+        // ── Component D: Pharmacy (Amodhya) ──────────────────────────────────
+        public DbSet<Medicine> Medicines { get; set; }
+        public DbSet<Prescription> Prescriptions { get; set; }
+        public DbSet<PrescriptionItem> PrescriptionItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -108,6 +112,77 @@ namespace CareFlowAI.API.Data
 
                 entity.Property(a => a.CreatedAt)
                       .HasDefaultValueSql("now()");
+            });
+            // ── Medicine ──────────────────────────────────────────────────────
+            modelBuilder.Entity<Medicine>(entity =>
+            {
+                entity.HasKey(m => m.Id);
+
+                entity.Property(m => m.IsActive)
+                      .HasDefaultValue(true);
+
+                entity.Property(m => m.StockQuantity)
+                      .HasDefaultValue(0);
+
+                entity.Property(m => m.ReorderLevel)
+                      .HasDefaultValue(10);
+
+                entity.Property(m => m.UnitPrice)
+                      .HasColumnType("numeric(10,2)");
+
+                entity.Property(m => m.CreatedAt)
+                      .HasDefaultValueSql("now()");
+
+                entity.Property(m => m.UpdatedAt)
+                      .HasDefaultValueSql("now()");
+            });
+
+            // ── Prescription ──────────────────────────────────────────────────
+            modelBuilder.Entity<Prescription>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+
+                // FK → PatientProfiles (Component A)
+                entity.HasOne(p => p.Patient)
+                      .WithMany()
+                      .HasForeignKey(p => p.PatientId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // FK → TriageRecords (Component B)
+                entity.HasOne(p => p.TriageRecord)
+                      .WithMany()
+                      .HasForeignKey(p => p.TriageRecordId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(p => p.Status)
+                      .HasDefaultValue("Draft");
+
+                entity.Property(p => p.NotificationSent)
+                      .HasDefaultValue(false);
+
+                entity.Property(p => p.CreatedAt)
+                      .HasDefaultValueSql("now()");
+
+                entity.Property(p => p.UpdatedAt)
+                      .HasDefaultValueSql("now()");
+            });
+
+            // ── PrescriptionItem ──────────────────────────────────────────────
+            modelBuilder.Entity<PrescriptionItem>(entity =>
+            {
+                entity.HasKey(pi => pi.Id);
+
+                // FK → Prescriptions
+                entity.HasOne(pi => pi.Prescription)
+                      .WithMany(p => p.Items)
+                      .HasForeignKey(pi => pi.PrescriptionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // FK → Medicines
+                entity.HasOne(pi => pi.Medicine)
+                      .WithMany(m => m.PrescriptionItems)
+                      .HasForeignKey(pi => pi.MedicineId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }
