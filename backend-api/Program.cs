@@ -15,7 +15,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Component D: Pharmacy AI Validation/Safety Agent
 builder.Services.AddSingleton<PharmacyAiService>();
 
-// 1. Create the CORS policy
+// Component D: Third-Party SMS & Email Notification Service
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Create the CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
@@ -35,7 +38,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 2. ACTIVATE the CORS policy (This was the missing piece!)
+// ACTIVATE the CORS policy
 app.UseCors("AllowReactApp");
 
 app.UseAuthorization();
