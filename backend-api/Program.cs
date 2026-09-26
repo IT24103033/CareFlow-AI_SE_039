@@ -2,6 +2,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using Microsoft.EntityFrameworkCore;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -15,10 +16,7 @@ builder.Services.AddScoped<PlanningAgentService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Component D: Pharmacy AI Validation/Safety Agent
-builder.Services.AddSingleton<PharmacyAiService>();
 
-// 1. Create the CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",

@@ -1,6 +1,9 @@
+@"
 # Environments
 .env
 appsettings.Development.json
+.neon
+.env.local
 
 # Node / React
 node_modules/
@@ -20,5 +23,4 @@ build/
 # OS generated files
 .DS_Store
 Thumbs.db
-.neon
-.env.local
+"@ | Set-Content ".gitignore"
