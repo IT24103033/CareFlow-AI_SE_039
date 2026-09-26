@@ -35,8 +35,14 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # Component D: HTTP client for API communication
+  # ── Component B: Triage Patient App (Sujana) ─────────────────────────────
+  # HTTP client for API communication (POST /api/triage, GET /api/triage)
   http: ^1.2.0
+  # Secure storage for PatientId session (Keychain on iOS, Keystore on Android)
+  # v11.x adds full Swift Package Manager support needed for Xcode on macOS 26
+  flutter_secure_storage: ^11.2.0
+  # Camera & image picker — mandatory device feature integration
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
