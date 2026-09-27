@@ -2,14 +2,14 @@
 // Communicates with the ASP.NET Core API to fetch patient prescriptions.
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/prescription_model.dart';
 
 class PrescriptionService {
-  // Change this base URL to match your running API.
-  // For Android emulator use: http://10.0.2.2:5241/api
-  // For real device / web / Windows use: http://localhost:5241/api
-  static const String _baseUrl = 'http://localhost:5241/api';
+  static final String _baseUrl = Platform.isAndroid
+      ? 'http://10.0.2.2:5241/api'
+      : 'http://localhost:5241/api';
 
   /// Fetches all prescriptions for a given patient ID.
   /// Throws an [Exception] if the request fails.

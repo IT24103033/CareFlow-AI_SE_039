@@ -66,5 +66,16 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>CareFlow AI requires access to the camera to take photos of symptoms or injuries for medical triage.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CareFlow AI requires access to the photo library to upload images of symptoms for triage assessment.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>CareFlow AI requires access to the microphone if video capture is used.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
