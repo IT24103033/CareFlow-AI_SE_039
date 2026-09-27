@@ -55,11 +55,12 @@ namespace CareFlowAI.API.Controllers
             }
 
             // ── Filter ────────────────────────────────────────────────────────
+            var expiringThreshold = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
             query = filter.ToLower() switch
             {
                 "lowstock"  => query.Where(m => m.IsActive && m.StockQuantity <= m.ReorderLevel),
                 "inactive"  => query.Where(m => !m.IsActive),
-                "expiring"  => query.Where(m => m.IsActive && m.ExpiryDate <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30))),
+                "expiring"  => query.Where(m => m.IsActive && m.ExpiryDate <= expiringThreshold),
                 _           => query.Where(m => m.IsActive), // default: only active
             };
 
@@ -93,7 +94,7 @@ namespace CareFlowAI.API.Controllers
                     m.CreatedAt,
                     m.UpdatedAt,
                     IsLowStock = m.StockQuantity <= m.ReorderLevel,
-                    IsExpiringSoon = m.ExpiryDate <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30))
+                    IsExpiringSoon = m.ExpiryDate <= expiringThreshold
                 })
                 .ToListAsync();
 
