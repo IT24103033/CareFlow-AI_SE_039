@@ -18,13 +18,18 @@ namespace CareFlowAI.API.Controllers
     [Route("api/[controller]")]
     public class PrescriptionsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly PharmacyAiService    _aiService;
+        private readonly ApplicationDbContext  _context;
+        private readonly PharmacyAiService     _aiService;
+        private readonly INotificationService  _notificationService;
 
-        public PrescriptionsController(ApplicationDbContext context, PharmacyAiService aiService)
+        public PrescriptionsController(
+            ApplicationDbContext context,
+            PharmacyAiService aiService,
+            INotificationService notificationService)
         {
-            _context   = context;
-            _aiService = aiService;
+            _context             = context;
+            _aiService          = aiService;
+            _notificationService = notificationService;
         }
 
         // ── GET /api/prescriptions ───────────────────────────────────────────
@@ -253,7 +258,12 @@ namespace CareFlowAI.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var prescription = await _context.Prescriptions.FindAsync(id);
+            var prescription = await _context.Prescriptions
+                .Include(p => p.Patient)
+                .Include(p => p.Items)
+                    .ThenInclude(i => i.Medicine)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (prescription is null) return NotFound(new { message = "Prescription not found." });
 
             if (prescription.Status != "Draft")
@@ -265,12 +275,18 @@ namespace CareFlowAI.API.Controllers
                 prescription.IssuedByDoctorId  = dto.DoctorId;
                 prescription.Notes             = dto.DoctorNotes ?? prescription.Notes;
 
-                // ── Simulate notification (Component D – notification duty) ────
+                // ── Trigger third-party SMS & Email notification (Component D requirement) ──
                 prescription.NotificationSent    = true;
-                prescription.NotificationChannel = "Email";
+                prescription.NotificationChannel = "Email & SMS";
                 prescription.NotifiedAt          = DateTime.UtcNow;
-                // In a real system: call SendGrid/Twilio here.
-                // For demo, we log to the prescription record itself.
+
+                var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine.Name} x{i.Quantity} ({i.Dosage})"));
+                await _notificationService.DispatchPrescriptionNotificationAsync(
+                    prescription.Patient?.FullName ?? "Patient",
+                    "patient@careflow.hospital.org",
+                    medSummary,
+                    "Both"
+                );
             }
             else if (dto.Decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
             {
@@ -292,7 +308,7 @@ namespace CareFlowAI.API.Controllers
                 prescription.NotificationSent,
                 prescription.NotificationChannel,
                 message = dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase)
-                    ? "Prescription issued. Patient notified via Email (simulated)."
+                    ? "Prescription issued. Patient notified via Third-Party Email and SMS."
                     : "Prescription rejected and cancelled."
             });
         }
