@@ -1,0 +1,50 @@
+.triage-page { color-scheme: light; color: #20354b; background: #f3f6f9; text-align: left; padding: 28px; font-size: 15px; line-height: 1.5; flex: 1; }
+.triage-page * { box-sizing: border-box; }
+.triage-page h1 { font-size: 32px; margin: 4px 0 8px; color: #15314b; font-weight: 700; letter-spacing: -.6px; }
+.triage-page h2 { color: #15314b; font-size: 19px; font-weight: 650; margin-bottom: 16px; }
+.triage-page h3 { font-size: 15px; margin: 22px 0 8px; }
+.triage-heading, .triage-detail-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.triage-eyebrow { color: #007c80; font-size: 11px; letter-spacing: 2px; font-weight: 750; }
+.triage-page button { cursor: pointer; border: 1px solid #c7d4df; border-radius: 8px; padding: 10px 14px; background: white; color: #20354b; font: inherit; }
+.triage-page button:disabled { opacity: .55; cursor: not-allowed; }
+.triage-page :is(button,input,select,textarea):focus-visible { outline: 3px solid #008c95; outline-offset: 3px; }
+.triage-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 24px 0; }
+.triage-page label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.triage-search { flex: 1; min-width: 190px; }
+.triage-page input, .triage-page select, .triage-page textarea { background: white; color: #20354b; border: 1px solid #bdcbd8; border-radius: 7px; font: inherit; font-weight: 400; padding: 11px; width: 100%; }
+.triage-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.triage-panel { background: white; border: 1px solid #dee6ed; border-radius: 12px; padding: 22px; min-width: 0; }
+.triage-cases { list-style: none; padding: 0; margin: 0; }
+.triage-cases li + li { margin-top: 12px; }
+.triage-page .triage-case { display: flex; flex-direction: column; gap: 9px; width: 100%; text-align: left; padding: 16px; }
+.triage-page .triage-case:hover { background: #f5fafb; }
+.triage-page .triage-case.selected { border-color: #00878b; box-shadow: inset 3px 0 #00878b; background: #eef9f8; }
+.triage-preview { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.triage-case small, .triage-muted, .triage-id { color: #586c80; font-size: 13px; }
+.triage-id, .triage-text, .triage-detail dd { overflow-wrap: anywhere; white-space: pre-wrap; }
+.triage-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.triage-badge { display: inline-block; padding: 3px 9px; background: #edf1f5; border-radius: 5px; font-size: 11px; font-weight: 650; }
+.badge-Critical, .badge-Rejected { background: #ffebe9; color: #9b2724; }
+.badge-High, .badge-RevisionRequested { background: #fff0d9; color: #825200; }
+.badge-Medium, .badge-InReview { background: #e8f0fc; color: #234f91; }
+.badge-Low, .badge-Approved { background: #dff5ee; color: #176447; }
+.triage-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 20px; font-size: 12px; }
+.triage-empty { padding: 35px 22px; color: #586c80; }
+.triage-detail dl { margin: 16px 0; padding: 14px; background: #f6f8fa; border-radius: 8px; }
+.triage-detail dt { font-size: 12px; font-weight: 650; color: #586c80; }
+.triage-detail dd { margin: 3px 0 12px; }
+.triage-detail dd:last-child { margin-bottom: 0; }
+.triage-review-form { border-top: 1px solid #dee6ed; margin-top: 22px; display: grid; gap: 14px; }
+.triage-page .triage-primary { background: #007c80; border-color: #007c80; color: white; }
+.triage-error { background: #fff0ef; color: #8e2420; padding: 12px; border-radius: 8px; }
+.triage-notice { margin-top: 18px; padding: 12px; background: #e1f4ed; color: #18563f; border-radius: 8px; }
+@media (max-width: 800px) { .triage-layout { grid-template-columns: 1fr; } .triage-page { padding: 16px; } .triage-heading { align-items: start; flex-direction: column; } }
+
+.triage-warning { padding: 12px 16px; background: #fff5df; border-radius: 8px; color: #704e13; }
+.triage-warning h3 { margin-top: 0; }
+.triage-plan-steps { padding-left: 22px; }
+.triage-plan-steps li { margin: 10px 0; }
+.triage-plan-steps span { font-size: 12px; color: #586c80; }
+.triage-execution { margin: 16px 0; font-size: 13px; overflow-wrap: anywhere; }
+.triage-execution summary { cursor: pointer; font-weight: 650; }
+.badge-AssessmentFailed { background: #fff0d9; color: #825200; }

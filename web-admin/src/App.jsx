@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
@@ -6,6 +5,7 @@ import PatientManagement from './pages/PatientManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import PrescriptionManagement from './pages/PrescriptionManagement';
 import './App.css';
+import TriageReview from './pages/TriageReview';
 
 const navLink = { textDecoration: 'none', color: '#0066cc', fontWeight: 'bold', marginRight: '20px' };
 
@@ -19,6 +19,7 @@ function App() {
         </Link>
         <Link to="/wards"         style={{ ...navLink, color: '#a9b4d4' }}>Ward Management</Link>
         <Link to="/patients"      style={{ ...navLink, color: '#a9b4d4' }}>Patient Registration</Link>
+        <Link to="/triage" style={{ ...navLink, color: '#a9b4d4' }}>Triage Review</Link>
         {/* Component D links */}
         <Link to="/inventory"     style={{ ...navLink, color: '#c3b1e1' }}>💊 Inventory</Link>
         <Link to="/prescriptions" style={{ ...navLink, color: '#c3b1e1' }}>📋 Prescriptions</Link>
@@ -34,6 +35,7 @@ function App() {
         } />
         <Route path="/wards"         element={<WardManagement />} />
         <Route path="/patients"      element={<PatientManagement />} />
+        <Route path="/triage" element={<TriageReview />} />
         {/* ── Component D: Pharmacy ─────────────────────────────────────── */}
         <Route path="/inventory"     element={<InventoryManagement />} />
         <Route path="/prescriptions" element={<PrescriptionManagement />} />
