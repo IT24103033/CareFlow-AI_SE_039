@@ -1,6 +1,7 @@
 using System.Text;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
+using CareFlowAI.Orchestrator;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,7 +16,12 @@ builder.Services.AddEndpointsApiExplorer();
 // Swagger with JWT Bearer support
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CareFlowAI API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CareFlowAI API",
+        Version = "v1"
+    });
+
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -24,6 +30,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -49,14 +56,22 @@ builder.Services.AddScoped<PlanningAgentService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
 // Authentication & JWT Bearer configuration
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "CareFlowAI_Super_Secret_Key_For_Jwt_Signing_Must_Be_Long_Enough_2026!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CareFlowAI";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CareFlowAI.Clients";
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? "CareFlowAI_Super_Secret_Key_For_Jwt_Signing_Must_Be_Long_Enough_2026!";
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? "CareFlowAI";
+
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? "CareFlowAI.Clients";
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme =
+        JwtBearerDefaults.AuthenticationScheme;
+
+    options.DefaultChallengeScheme =
+        JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
@@ -66,9 +81,14 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
+
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+
+        IssuerSigningKey =
+            new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSecret)),
+
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -76,16 +96,22 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-    // Component C: Doctor Availability
-builder.Services.AddScoped<DoctorAvailabilityService>();
-
-// Component D: Third-Party SMS & Email Notification Service
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<PharmacyAiService>();
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Component C: Doctor Availability Service
 builder.Services.AddScoped<DoctorAvailabilityService>();
+
+// Component C: Appointment Scheduling Service
+builder.Services.AddScoped<AppointmentService>();
+
+// Component C: Appointment Action Agent
+builder.Services.AddScoped<AppointmentWorkflowRunner>();
+
+// Component D: Third-Party SMS & Email Notification Service
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+builder.Services.AddScoped<PharmacyAiService>();
 
 // Create the CORS policy
 builder.Services.AddCors(options =>
