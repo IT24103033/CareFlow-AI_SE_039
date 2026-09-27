@@ -7,11 +7,18 @@
 // → Otherwise → LoginScreen
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
+import 'theme/app_theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
   runApp(const CareFlowApp());
 }
 
@@ -23,21 +30,7 @@ class CareFlowApp extends StatelessWidget {
     return MaterialApp(
       title: 'CareFlow AI',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.dark(
-          primary:    const Color(0xFF6C63FF),
-          secondary:  const Color(0xFF8B5CF6),
-          surface:    const Color(0xFF16213E),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF1A1A2E),
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1A1A2E),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-      ),
+      theme: AppTheme.theme,
       // Auth gate: resolves asynchronously before showing any screen
       home: const _AuthGate(),
     );
@@ -46,7 +39,7 @@ class CareFlowApp extends StatelessWidget {
 
 // ── Auth Gate ─────────────────────────────────────────────────────────────────
 // Checks SecureStorage for a saved PatientId.
-// Shows a loading spinner, then routes to Home or Login.
+// Shows a branded splash, then routes to Home or Login.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -67,31 +60,49 @@ class _AuthGateState extends State<_AuthGate> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => loggedIn ? const HomeScreen() : const LoginScreen(),
+        builder: (_) =>
+            loggedIn ? const HomeScreen() : const LoginScreen(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF1A1A2E),
+    return Scaffold(
+      backgroundColor: AppTheme.navyDark,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🏥', style: TextStyle(fontSize: 56)),
-            SizedBox(height: 20),
-            Text('CareFlow AI',
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.teal,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 48),
+            ),
+            const SizedBox(height: 20),
+            const Text('CareFlow AI',
                 style: TextStyle(
                     color: Colors.white,
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('Smart Digital Hospital',
-                style: TextStyle(color: Colors.white38, fontSize: 14)),
-            SizedBox(height: 32),
-            CircularProgressIndicator(color: Color(0xFF6C63FF)),
+            const SizedBox(height: 6),
+            const Text('SMART DIGITAL HOSPITAL',
+                style: TextStyle(
+                    color: AppTheme.teal,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2)),
+            const SizedBox(height: 40),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                  color: AppTheme.teal, strokeWidth: 2.5),
+            ),
           ],
         ),
       ),

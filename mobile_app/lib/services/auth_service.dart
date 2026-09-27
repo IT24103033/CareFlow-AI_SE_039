@@ -39,7 +39,8 @@ class AuthService {
     return id != null && id.isNotEmpty;
   }
 
-  static const String _baseUrl = 'http://localhost:5241';
+  static final String _baseUrl =
+      Platform.isAndroid ? 'http://10.0.2.2:5241' : 'http://localhost:5241';
 
   // ── Register new patient with backend DB ────────────────────────────────────
   static Future<Map<String, dynamic>> registerPatient({

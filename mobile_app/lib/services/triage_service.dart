@@ -8,9 +8,8 @@ import 'package:http/http.dart' as http;
 class TriageService {
   // ── Change this to your machine's IP when running on a real Android device ──
   // iOS Simulator  → localhost works fine
-  // Android Emulator → use 10.0.2.2 instead of localhost
-  // Real device (USB) → use your computer's local IP e.g. 192.168.1.5
-  static const String _baseUrl = 'http://localhost:5241';
+  static final String _baseUrl =
+      Platform.isAndroid ? 'http://10.0.2.2:5241' : 'http://localhost:5241';
 
   // ── Submit a new triage request ────────────────────────────────────────────
   // POST /api/triage
