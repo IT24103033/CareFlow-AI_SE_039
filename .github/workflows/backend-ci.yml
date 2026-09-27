@@ -24,3 +24,14 @@ jobs:
 
     - name: Build Solution
       run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
+
+    - name: Run Backend Tests
+      run: dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --verbosity normal
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run Triage Client Contract Tests
+      run: npm test --prefix web-admin
