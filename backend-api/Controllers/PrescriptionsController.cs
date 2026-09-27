@@ -5,6 +5,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
 using CareFlowAI.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,16 +36,8 @@ namespace CareFlowAI.API.Controllers
         // ── GET /api/prescriptions ───────────────────────────────────────────
         /// <summary>
         /// List prescriptions with search, filter, sort and pagination.
-        /// Query params:
-        ///   patientId  - filter by patient GUID
-        ///   status     - filter by status ("Draft"|"Issued"|"Dispensed"|"Cancelled")
-        ///   aiStatus   - filter by AI verdict ("Safe"|"Warning"|"Blocked")
-        ///   search     - text search on patient name
-        ///   sortBy     - "created" (default) | "status" | "patient"
-        ///   sortDir    - "desc" (default) | "asc"
-        ///   page       - page number (default 1)
-        ///   pageSize   - items per page (default 10, max 50)
         /// </summary>
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] Guid?   patientId = null,
@@ -66,9 +59,22 @@ namespace CareFlowAI.API.Controllers
                     .ThenInclude(i => i.Medicine)
                 .AsQueryable();
 
-            // ── Filter ────────────────────────────────────────────────────────
-            if (patientId.HasValue)
+            // ── Patient Scoping / Ownership ───────────────────────────────────
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId))
+                    return StatusCode(403, "Authenticated patient identity is missing or invalid.");
+
+                if (patientId.HasValue && patientId.Value != authPatientId)
+                    return StatusCode(403, "You cannot view prescriptions belonging to another patient.");
+
+                query = query.Where(p => p.PatientId == authPatientId);
+            }
+            else if (patientId.HasValue)
+            {
                 query = query.Where(p => p.PatientId == patientId.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(status))
                 query = query.Where(p => p.Status == status);
@@ -136,6 +142,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── GET /api/prescriptions/{id} ──────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -149,6 +156,13 @@ namespace CareFlowAI.API.Controllers
             if (prescription is null)
                 return NotFound(new { message = "Prescription not found." });
 
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || prescription.PatientId != authPatientId)
+                    return StatusCode(403, "You do not have permission to view this prescription.");
+            }
+
             return Ok(prescription);
         }
 
@@ -157,6 +171,7 @@ namespace CareFlowAI.API.Controllers
         /// Creates a Draft prescription, then immediately runs the AI Validation/Safety Agent.
         /// The prescription is paused (stays "Draft") until a doctor approves via PATCH /approve.
         /// </summary>
+        [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreatePrescriptionDto dto)
         {
@@ -232,6 +247,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── PUT /api/prescriptions/{id} ──────────────────────────────────────
+        [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePrescriptionDto dto)
         {
@@ -253,6 +269,7 @@ namespace CareFlowAI.API.Controllers
         /// On Approve → Status = "Issued" and notification is simulated.
         /// On Reject  → Status = "Cancelled".
         /// </summary>
+        [Authorize(Roles = "Doctor")]
         [HttpPatch("{id:guid}/approve")]
         public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovePrescriptionDto dto)
         {
@@ -268,6 +285,12 @@ namespace CareFlowAI.API.Controllers
 
             if (prescription.Status != "Draft")
                 return BadRequest(new { message = $"Prescription is already '{prescription.Status}'. Only Draft prescriptions can be approved/rejected." });
+
+            // If doctorId in DTO is empty, try deriving from authenticated doctor_id claim
+            if (dto.DoctorId == Guid.Empty && Guid.TryParse(User?.FindFirst("doctor_id")?.Value, out var claimDocId))
+            {
+                dto.DoctorId = claimDocId;
+            }
 
             if (dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
             {
@@ -318,6 +341,7 @@ namespace CareFlowAI.API.Controllers
         /// Pharmacist dispenses the prescription: deducts stock for each item.
         /// Prescription must be in "Issued" status to dispense.
         /// </summary>
+        [Authorize(Roles = "Staff,Admin")]
         [HttpPatch("{id:guid}/dispense")]
         public async Task<IActionResult> Dispense(Guid id)
         {
@@ -369,6 +393,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── DELETE /api/prescriptions/{id} ──────────────────────────────────
+        [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {

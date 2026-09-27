@@ -22,7 +22,6 @@ import './App.css';
 // Navigation links for the sidebar based on role
 const staffLinks = [
   { path: '/staff/patients', label: 'Patient Details', icon: '👤' },
-  { path: '/staff/triage', label: 'Triage & Intake Queue', icon: '🩺' },
   { path: '/staff/wards', label: 'Wards', icon: '🛏️' },
   { path: '/staff/pharmacy', label: 'Pharmacy & Inventory', icon: '💊' },
   { path: '/staff/prescriptions', label: 'Prescriptions', icon: '📋' },
@@ -59,7 +58,7 @@ function App() {
 
           {/* Doctor Routes */}
           <Route path="/doctor" element={
-            <ProtectedRoute allowedRoles={['Doctor', 'Admin']}>
+            <ProtectedRoute allowedRoles={['Doctor']}>
               <SidebarLayout role="Doctor Staff" links={doctorLinks} />
             </ProtectedRoute>
           }>
@@ -78,7 +77,6 @@ function App() {
             <Route index element={<Navigate to="/staff/patients" replace />} />
             <Route path="patients" element={<ManagePatients />} />
             <Route path="wards" element={<WardManagement />} />
-            <Route path="triage" element={<TriageReview />} />
             <Route path="pharmacy" element={<InventoryManagement />} />
             <Route path="prescriptions" element={<PrescriptionManagement />} />
             <Route path="history-search" element={<PatientHistorySearch />} />
@@ -86,14 +84,42 @@ function App() {
             <Route path="*" element={<div className="placeholder-view">Feature Coming Soon</div>} />
           </Route>
 
-          {/* Direct routes for backward compatibility */}
-          <Route path="/triage" element={<TriageReview />} />
-          <Route path="/inventory" element={<InventoryManagement />} />
-          <Route path="/prescriptions" element={<PrescriptionManagement />} />
-          <Route path="/wards" element={<WardManagement />} />
-          <Route path="/patients" element={<PatientManagement />} />
-          <Route path="/ai-analysis" element={<AiAnalysis />} />
-          <Route path="/history-search" element={<PatientHistorySearch />} />
+          {/* Direct routes for backward compatibility (Guarded with ProtectedRoute) */}
+          <Route path="/triage" element={
+            <ProtectedRoute allowedRoles={['Doctor']}>
+              <TriageReview />
+            </ProtectedRoute>
+          } />
+          <Route path="/inventory" element={
+            <ProtectedRoute allowedRoles={['Staff', 'Admin']}>
+              <InventoryManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/prescriptions" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
+              <PrescriptionManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/wards" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
+              <WardManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/patients" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
+              <PatientManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/ai-analysis" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
+              <AiAnalysis />
+            </ProtectedRoute>
+          } />
+          <Route path="/history-search" element={
+            <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
+              <PatientHistorySearch />
+            </ProtectedRoute>
+          } />
 
           {/* Fallback routing */}
           <Route path="/" element={<Navigate to="/login" replace />} />

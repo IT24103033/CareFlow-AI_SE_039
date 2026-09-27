@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,14 +28,8 @@ namespace CareFlowAI.API.Controllers
         // ── GET /api/medicines ───────────────────────────────────────────────
         /// <summary>
         /// List all medicines with search, filter, sort and pagination.
-        /// Query params:
-        ///   search     - text search on Name or Category
-        ///   filter     - "all" (default) | "lowstock" | "inactive" | "expiring"
-        ///   sortBy     - "name" (default) | "stock" | "price" | "expiry"
-        ///   sortDir    - "asc" (default) | "desc"
-        ///   page       - page number (default 1)
-        ///   pageSize   - items per page (default 10, max 50)
         /// </summary>
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] string? search   = null,
@@ -113,6 +108,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── GET /api/medicines/{id} ──────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -122,6 +118,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── POST /api/medicines ──────────────────────────────────────────────
+        [Authorize(Roles = "Staff,Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateMedicineDto dto)
         {
@@ -147,6 +144,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── PUT /api/medicines/{id} ──────────────────────────────────────────
+        [Authorize(Roles = "Staff,Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMedicineDto dto)
         {
@@ -171,6 +169,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── DELETE /api/medicines/{id} (soft delete) ─────────────────────────
+        [Authorize(Roles = "Staff,Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -186,6 +185,7 @@ namespace CareFlowAI.API.Controllers
 
         // ── PATCH /api/medicines/{id}/restock ────────────────────────────────
         /// <summary>Add units to the current stock quantity.</summary>
+        [Authorize(Roles = "Staff,Admin")]
         [HttpPatch("{id:guid}/restock")]
         public async Task<IActionResult> Restock(Guid id, [FromBody] RestockMedicineDto dto)
         {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PatientManagement from '../PatientManagement';
+import { apiFetch } from '../../services/api';
 import './ManagePatients.css'; // updated CSS
 
 const ManagePatients = () => {
@@ -23,10 +24,10 @@ const ManagePatients = () => {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/PatientProfiles');
+      const res = await apiFetch('/api/PatientProfiles');
       if (res.ok) {
         const data = await res.json();
-        setPatients(data);
+        setPatients(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error('Failed to fetch patients', e);
@@ -35,10 +36,10 @@ const ManagePatients = () => {
 
   const fetchWards = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/Wards');
+      const res = await apiFetch('/api/Wards');
       if (res.ok) {
         const data = await res.json();
-        setWards(data);
+        setWards(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error('Failed to fetch wards', e);
@@ -53,10 +54,10 @@ const ManagePatients = () => {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5241/api/PatientProfiles/search?name=${term}`);
+      const res = await apiFetch(`/api/PatientProfiles/search?name=${encodeURIComponent(term)}`);
       if (res.ok) {
         const data = await res.json();
-        setPatients(data);
+        setPatients(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error('Failed to search', e);
@@ -65,9 +66,8 @@ const ManagePatients = () => {
 
   const handleAiAnalyze = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/Admissions/analyze-risk', {
+      const res = await apiFetch('/api/Admissions/analyze-risk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientName: aiInput.name,
           currentSymptoms: aiInput.symptoms
@@ -107,9 +107,8 @@ const ManagePatients = () => {
       return;
     }
     try {
-      const res = await fetch('http://localhost:5241/api/Admissions/allocate-ward', {
+      const res = await apiFetch('/api/Admissions/allocate-ward', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientProfileId: selectedPatientId,
           wardId: selectedWardId

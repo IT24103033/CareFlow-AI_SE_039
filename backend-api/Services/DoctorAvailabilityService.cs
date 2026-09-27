@@ -55,6 +55,25 @@ namespace CareFlowAI.API.Services
                 .ToListAsync();
         }
 
+        // Get single availability record by ID
+        public async Task<DoctorAvailabilityDto?> GetByIdAsync(Guid id)
+        {
+            return await _context.DoctorAvailabilities
+                .Include(a => a.Doctor)
+                .Where(a => a.Id == id)
+                .Select(a => new DoctorAvailabilityDto
+                {
+                    Id = a.Id,
+                    DoctorId = a.DoctorId,
+                    DoctorName = a.Doctor.FullName,
+                    Specialization = a.Doctor.Specialization,
+                    Date = a.Date,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime
+                })
+                .FirstOrDefaultAsync();
+        }
+
         // Create a new availability record
         public async Task<DoctorAvailabilityDto?> CreateAsync(
             CreateDoctorAvailabilityDto dto)

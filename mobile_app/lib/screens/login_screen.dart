@@ -1,4 +1,4 @@
-// Component B – Login Screen (Redesigned)
+// Component B – Login Screen (Authenticated)
 // CareFlow AI healthcare aesthetic:
 // Navy header, white card form, teal accents, trust badges.
 
@@ -18,24 +18,16 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey       = GlobalKey<FormState>();
-  final _patientIdCtrl = TextEditingController();
-  final _nameCtrl      = TextEditingController();
+  final _usernameCtrl  = TextEditingController();
+  final _passwordCtrl  = TextEditingController();
 
-  bool    _isLoading    = false;
+  bool    _isLoading      = false;
+  bool    _obscurePassword = true;
   String? _errorMessage;
 
   late AnimationController _animCtrl;
   late Animation<double>   _slideAnim;
   late Animation<double>   _fadeAnim;
-
-  // ── UUID validator ─────────────────────────────────────────────────────────
-  bool _isValidUuid(String value) {
-    final uuidRegex = RegExp(
-      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-      caseSensitive: false,
-    );
-    return uuidRegex.hasMatch(value);
-  }
 
   @override
   void initState() {
@@ -51,8 +43,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animCtrl.dispose();
-    _patientIdCtrl.dispose();
-    _nameCtrl.dispose();
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
@@ -66,31 +58,22 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      String patientId   = _patientIdCtrl.text.trim();
-      String patientName = _nameCtrl.text.trim();
+      final username = _usernameCtrl.text.trim();
+      final password = _passwordCtrl.text;
 
-      if (patientId.isEmpty) {
-        final matches = await AuthService.searchPatients(patientName);
-        if (matches.isEmpty) {
-          setState(() => _errorMessage =
-              'No patient profile found for "$patientName". Please register first.');
-          return;
-        }
-        patientId   = matches.first['id'].toString();
-        patientName = matches.first['fullName']?.toString() ?? patientName;
-      }
-
-      await AuthService.saveSession(
-        patientId:   patientId,
-        patientName: patientName,
+      await AuthService.login(
+        username: username,
+        password: password,
       );
 
       if (!mounted) return;
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     } catch (e) {
-      setState(() => _errorMessage =
-          'Login failed. Make sure the backend is running.\nDetails: $e');
+      String msg = e.toString();
+      if (msg.startsWith('Exception: ')) msg = msg.substring(11);
+      if (msg.startsWith('HttpException: ')) msg = msg.substring(15);
+      setState(() => _errorMessage = msg);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -234,59 +217,46 @@ class _LoginScreenState extends State<LoginScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _fieldLabel('Your Name'),
+              _fieldLabel('Username or Email'),
               const SizedBox(height: 6),
               TextFormField(
-                controller: _nameCtrl,
+                controller: _usernameCtrl,
                 style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
                 decoration: AppTheme.inputDecoration(
-                  hint: 'e.g. Kamal Perera',
+                  hint: 'Enter your username or email',
                   icon: Icons.person_outline,
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Name is required';
-                  if (v.trim().length < 2) return 'Enter a valid name';
+                  if (v == null || v.trim().isEmpty) return 'Username or email is required';
                   return null;
                 },
               ),
               const SizedBox(height: 16),
 
-              _fieldLabel('Patient ID (optional — leave blank to look up by name)'),
+              _fieldLabel('Password'),
               const SizedBox(height: 6),
               TextFormField(
-                controller: _patientIdCtrl,
+                controller: _passwordCtrl,
+                obscureText: _obscurePassword,
                 style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
                 decoration: AppTheme.inputDecoration(
-                  hint: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-                  icon: Icons.badge_outlined,
+                  hint: 'Enter your password',
+                  icon: Icons.lock_outline,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: AppTheme.textLight,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                 ),
                 validator: (v) {
-                  if (v != null &&
-                      v.trim().isNotEmpty &&
-                      !_isValidUuid(v.trim())) {
-                    return 'Enter a valid UUID or leave blank';
-                  }
+                  if (v == null || v.isEmpty) return 'Password is required';
                   return null;
                 },
               ),
               const SizedBox(height: 8),
-
-              // Forgot?
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {},
-                  style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                  child: const Text('Forgot patient ID?',
-                      style: TextStyle(
-                          color: AppTheme.teal,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13)),
-                ),
-              ),
 
               // ── Error banner ─────────────────────────────────────────────
               if (_errorMessage != null) ...[

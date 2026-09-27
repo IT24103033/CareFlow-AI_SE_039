@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/PatientProfile.dart';
-import '../services/ApiService.dart';
-import '../models/Ward.dart';
 import 'MobileWardStatus.dart';
 import 'LoginScreen.dart';
 
@@ -25,29 +23,7 @@ class _PatientScaffold extends StatefulWidget {
 
 class _PatientScaffoldState extends State<_PatientScaffold> {
   int _selectedIndex = 0;
-  final _primaryTeal = const Color(0xFF0AB39C);
-
-  void _handleLogout() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            },
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
+  static const _primaryTeal = Color(0xFF0AB39C);
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +53,6 @@ class _PatientScaffoldState extends State<_PatientScaffold> {
 
 class _ProfileView extends StatelessWidget {
   final PatientProfile patient;
-  final _primaryTeal = const Color(0xFF0AB39C);
 
   const _ProfileView({required this.patient});
 

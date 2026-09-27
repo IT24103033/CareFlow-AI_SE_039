@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CareFlowAI.API.Data;
@@ -16,6 +17,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // GET: api/wards
+        [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpGet]
         public async Task<IActionResult> GetWards()
         {

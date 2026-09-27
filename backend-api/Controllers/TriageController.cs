@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CareFlowAI.API.Data;
@@ -7,6 +8,7 @@ using CareFlowAI.API.Services;
 
 namespace CareFlowAI.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class TriageController : ControllerBase
@@ -25,22 +27,42 @@ namespace CareFlowAI.API.Controllers
         // Flutter app calls this when a patient submits symptoms.
         // Saves the record, then immediately triggers the Planning Agent.
         // ────────────────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpPost]
         public async Task<IActionResult> Submit([FromBody] CreateTriageRequestDto dto, CancellationToken cancellationToken = default)
         {
-            if (dto.PatientId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Symptoms) ||
+            if (string.IsNullOrWhiteSpace(dto.Symptoms) ||
                 dto.Symptoms.Trim().Length < 20 || dto.Symptoms.Length > 4000 || dto.Duration?.Length > 200)
-                return BadRequest("Provide a patient ID and symptoms between 20 and 4000 characters.");
+                return BadRequest("Provide symptoms between 20 and 4000 characters.");
+
+            Guid patientId;
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId))
+                    return StatusCode(403, "Authenticated patient identity is missing or invalid.");
+
+                if (dto.PatientId != Guid.Empty && dto.PatientId != authPatientId)
+                    return StatusCode(403, "You cannot submit triage records on behalf of another patient.");
+
+                patientId = authPatientId;
+            }
+            else
+            {
+                if (dto.PatientId == Guid.Empty)
+                    return BadRequest("Provide a valid patient ID.");
+                patientId = dto.PatientId;
+            }
 
             // 1. Validate that the patient exists
-            var patient = await _context.PatientProfiles.FindAsync(dto.PatientId);
+            var patient = await _context.PatientProfiles.FindAsync(patientId);
             if (patient == null)
                 return NotFound("Patient profile not found.");
 
             // 2. Save the triage record
             var record = new TriageRecord
             {
-                PatientId    = dto.PatientId,
+                PatientId    = patientId,
                 Symptoms     = dto.Symptoms.Trim(),
                 TriageStatus = "Pending",
                 SeverityLevel = "Unassessed"
@@ -68,6 +90,7 @@ namespace CareFlowAI.API.Controllers
         // Returns a single triage record with its AI plan.
         // Used by both Flutter (patient status) and React (doctor review).
         // ────────────────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -78,19 +101,38 @@ namespace CareFlowAI.API.Controllers
             if (record == null)
                 return NotFound();
 
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                    return StatusCode(403, "You do not have permission to view this triage record.");
+            }
+
             var agent = LatestAgent(record);
             return Ok(MapToDto(record, agent));
         }
 
         // ────────────────────────────────────────────────────────────────────
         // GET api/triage
-        // React dashboard: list all triage records awaiting doctor review.
+        // React dashboard / Flutter history: list triage records.
+        // Patients only see their own records; staff/doctors see all.
         // ────────────────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var records = await _context.TriageRecords
-                .Include(t => t.AgentWorkflows)
+            var query = _context.TriageRecords.AsNoTracking().Include(t => t.AgentWorkflows).AsQueryable();
+
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId))
+                    return StatusCode(403, "Authenticated patient identity is missing or invalid.");
+
+                query = query.Where(t => t.PatientId == authPatientId);
+            }
+
+            var records = await query
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
@@ -104,6 +146,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // Separate staff endpoints preserve the existing mobile list response contract.
+        [Authorize(Roles = "Doctor")]
         [HttpGet("review-queue")]
         public async Task<IActionResult> ReviewQueue([FromQuery] TriageQueueQuery filter)
         {
@@ -131,6 +174,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r))), total, filter.Page, filter.PageSize });
         }
 
+        [Authorize(Roles = "Doctor")]
         [HttpGet("review-queue/{id:guid}")]
         public async Task<IActionResult> ReviewDetails(Guid id)
         {
@@ -141,12 +185,13 @@ namespace CareFlowAI.API.Controllers
             return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record)));
         }
 
+        [Authorize(Roles = "Doctor")]
         [HttpPatch("{id:guid}/review")]
         public async Task<IActionResult> Review(Guid id, [FromBody] ReviewTriageDto dto)
         {
             var access = CheckStaffAccess();
             if (access != null) return access;
-            if (!Guid.TryParse(User.FindFirst("doctor_id")?.Value, out var doctorId) ||
+            if (!Guid.TryParse(User?.FindFirst("doctor_id")?.Value, out var doctorId) ||
                 !await _context.Doctors.AnyAsync(d => d.Id == doctorId && d.IsActive))
                 return StatusCode(403, "An active doctor profile is required to review cases.");
             if (!new[] { "Approved", "Rejected", "RevisionRequested" }.Contains(dto.Decision))
@@ -180,8 +225,8 @@ namespace CareFlowAI.API.Controllers
         private IActionResult? CheckStaffAccess()
         {
             // Fail closed until Component A installs its authentication middleware.
-            if (User.Identity?.IsAuthenticated != true) return Unauthorized("Staff sign-in is required.");
-            return User.IsInRole("Doctor") ? null : StatusCode(403, "Doctor access is required.");
+            if (User?.Identity?.IsAuthenticated != true) return Unauthorized("Staff sign-in is required.");
+            return (User?.IsInRole("Doctor") == true) ? null : StatusCode(403, "Doctor access is required.");
         }
 
         private static AgentWorkflowState? LatestAgent(TriageRecord record) => record.AgentWorkflows

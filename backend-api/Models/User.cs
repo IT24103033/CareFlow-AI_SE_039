@@ -8,7 +8,11 @@ namespace CareFlowAI.API.Models
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty; // Store plain for testing, should be hashed
-        public string Role { get; set; } = string.Empty; // "Admin", "Doctor", "Staff"
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty; // Securely hashed password
+        public string Role { get; set; } = string.Empty; // "Admin", "Doctor", "Staff", "Patient"
+        public Guid? DoctorId { get; set; }
+        public Guid? PatientProfileId { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createTriageApi } from '../services/triageApi';
+import { useAuth } from '../context/AuthContext';
 import './TriageReview.css';
 import { readPlan } from '../services/triagePlan';
 
-const defaultApi = createTriageApi();
 const statuses = ['Pending', 'InReview', 'Approved', 'Rejected', 'RevisionRequested', 'AssessmentFailed'];
 const label = (value) => ({ InReview: 'Awaiting review', RevisionRequested: 'Revision requested', AssessmentFailed: 'Assessment unavailable' }[value] || value || 'Not available');
 const date = (value) => value ? new Date(value).toLocaleString() : 'Not available';
@@ -11,7 +11,10 @@ function Badge({ value }) {
   return <span className={`triage-badge badge-${value || 'unknown'}`}>{label(value)}</span>;
 }
 
-export default function TriageReview({ api = defaultApi }) {
+export default function TriageReview({ api }) {
+  const { getAccessToken } = useAuth();
+  const activeApi = useMemo(() => api || createTriageApi(getAccessToken), [api, getAccessToken]);
+
   const [filters, setFilters] = useState({ search: '', status: 'InReview', severity: '', sort: 'urgency', page: 1, pageSize: 10 });
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState({ items: [], total: 0 });
@@ -22,13 +25,13 @@ export default function TriageReview({ api = defaultApi }) {
   const [notice, setNotice] = useState('');
   useEffect(() => {
     const controller = new AbortController();
-    api.list(filters, controller.signal).then(data => {
+    activeApi.list(filters, controller.signal).then(data => {
       if (!controller.signal.aborted) { setQueue(data); setLoading(false); }
     }).catch(err => {
       if (!controller.signal.aborted) { setError(err.message); setLoading(false); }
     });
     return () => controller.abort();
-  }, [api, filters, refresh]);
+  }, [activeApi, filters, refresh]);
   function updateFilters(changes) {
     setLoading(true); setError(''); setSelected(null); setNotice('');
     setFilters(current => ({ ...current, page: 1, ...changes }));
@@ -71,7 +74,7 @@ export default function TriageReview({ api = defaultApi }) {
           <button disabled={filters.page >= pages} onClick={() => updateFilters({ page: filters.page + 1 })}>Next</button>
         </footer>}
       </section>
-      {selected ? <CaseDetail key={selected} id={selected} api={api} onDecision={decision => {
+      {selected ? <CaseDetail key={selected} id={selected} api={activeApi} onDecision={decision => {
         setNotice(`${label(decision)} recorded. This decision does not confirm an appointment.`); reload();
       }} /> : <section className="triage-panel triage-empty"><h2>Select a submission</h2><p>Patient details, the AI assessment and review actions will appear here.</p></section>}
     </div>

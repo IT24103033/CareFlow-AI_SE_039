@@ -1,28 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Login.css'; // We will create this
+import './Login.css';
 import logo from '../assets/logo.png';
 import loginPic from '../assets/login_pic.png';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Simulate login based on email. Real app would call backend.
-    let role = 'Staff'; // Default
-    if (email.includes('admin')) role = 'Admin';
-    if (email.includes('doctor')) role = 'Doctor';
-    
-    login(role);
+    setError('');
+    setLoading(true);
 
-    if (role === 'Admin') navigate('/admin');
-    else if (role === 'Doctor') navigate('/doctor');
-    else navigate('/staff/patients');
+    try {
+      const data = await login(username, password);
+      const role = data.user?.role;
+
+      if (role === 'Admin') {
+        navigate('/admin');
+      } else if (role === 'Doctor') {
+        navigate('/doctor/dashboard');
+      } else if (role === 'Staff') {
+        navigate('/staff/patients');
+      } else {
+        setError('This portal is reserved for clinical staff, doctors, and administrators.');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid username or password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,15 +52,29 @@ const Login = () => {
           
           <h1 className="login-heading">Login</h1>
           
+          {error && (
+            <div style={{
+              backgroundColor: '#fee2e2',
+              color: '#b91c1c',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="login-form">
             <div className="input-group">
-              <span className="input-icon">✉</span>
+              <span className="input-icon">👤</span>
               <input 
                 type="text" 
-                placeholder="Email Address" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Username or Email" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="input-group">
@@ -58,9 +85,12 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
-            <button type="submit" className="login-btn">Login</button>
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? 'Signing in...' : 'Login'}
+            </button>
           </form>
         </div>
         <div className="login-right">

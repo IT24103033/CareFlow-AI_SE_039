@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // POST: api/admissions/allocate-ward
+        [Authorize(Roles = "Staff,Admin")]
         [HttpPost("allocate-ward")]
         public async Task<IActionResult> AllocateWard([FromBody] AdmissionRequestDto request)
         {
@@ -58,6 +60,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // POST: api/admissions/analyze-risk
+        [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPost("analyze-risk")]
         public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request)
         {

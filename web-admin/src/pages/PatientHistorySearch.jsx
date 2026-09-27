@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/api';
 
 const PatientHistorySearch = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -13,11 +14,11 @@ const PatientHistorySearch = () => {
         setHasSearched(true);
 
         try {
-            const response = await fetch(`http://localhost:5241/api/PatientProfiles/search?name=${searchTerm}`);
+            const response = await apiFetch(`/api/PatientProfiles/search?name=${encodeURIComponent(searchTerm)}`);
             const data = await response.json();
 
             // The API returns an array of matches
-            setResults(data);
+            setResults(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Error fetching patient history:", error);
             setResults([]);

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../services/api';
 
 const AiAnalysis = () => {
     const [patientName, setPatientName] = useState('');
@@ -9,9 +10,8 @@ const AiAnalysis = () => {
     const runAnalysis = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:5241/api/Admissions/analyze-risk', {
+            const response = await apiFetch('/api/Admissions/analyze-risk', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ patientName: patientName, currentSymptoms: symptoms })
             });
             const data = await response.json();

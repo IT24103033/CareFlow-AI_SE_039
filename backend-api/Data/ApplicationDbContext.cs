@@ -188,11 +188,17 @@ namespace CareFlowAI.API.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // Seed Doctor
+            var defaultDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222220");
+            modelBuilder.Entity<Doctor>().HasData(
+                new Doctor { Id = defaultDoctorId, FullName = "Dr. Robert Smith", Specialization = "General Practitioner", Email = "doctor@careflow.ai", IsActive = true }
+            );
+
             // Seed Users
             modelBuilder.Entity<User>().HasData(
-                new User { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Username = "admin", Password = "password", Role = "Admin" },
-                new User { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Username = "doctor", Password = "password", Role = "Doctor" },
-                new User { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Username = "staff", Password = "password", Role = "Staff" }
+                new User { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Username = "admin", Email = "admin@careflow.ai", Password = "password", Role = "Admin" },
+                new User { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Username = "doctor", Email = "doctor@careflow.ai", Password = "password", Role = "Doctor", DoctorId = defaultDoctorId },
+                new User { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Username = "staff", Email = "staff@careflow.ai", Password = "password", Role = "Staff" }
             );
 
             // Seed Wards
