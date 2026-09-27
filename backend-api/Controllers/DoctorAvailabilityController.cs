@@ -1,5 +1,6 @@
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CareFlowAI.API.Controllers
@@ -17,6 +18,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // GET: api/DoctorAvailability
+        [Authorize]
         [HttpGet]
         public async Task<ActionResult<List<DoctorAvailabilityDto>>> GetAll()
         {
@@ -26,6 +28,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // GET: api/DoctorAvailability/{doctorId}
+        [Authorize]
         [HttpGet("{doctorId:guid}")]
         public async Task<ActionResult<List<DoctorAvailabilityDto>>> GetByDoctorId(
             Guid doctorId)
@@ -36,10 +39,18 @@ namespace CareFlowAI.API.Controllers
         }
 
         // POST: api/DoctorAvailability
+        [Authorize(Roles = "Doctor,Admin")]
         [HttpPost]
         public async Task<ActionResult<DoctorAvailabilityDto>> Create(
             CreateDoctorAvailabilityDto dto)
         {
+            if (User?.IsInRole("Doctor") == true)
+            {
+                var docClaim = User?.FindFirst("doctor_id")?.Value;
+                if (!Guid.TryParse(docClaim, out var authDocId) || dto.DoctorId != authDocId)
+                    return StatusCode(403, "You can only manage your own availability schedule.");
+            }
+
             try
             {
                 var result = await _service.CreateAsync(dto);
@@ -65,11 +76,22 @@ namespace CareFlowAI.API.Controllers
         }
 
         // PUT: api/DoctorAvailability/{id}
+        [Authorize(Roles = "Doctor,Admin")]
         [HttpPut("{id:guid}")]
         public async Task<ActionResult<DoctorAvailabilityDto>> Update(
             Guid id,
             UpdateDoctorAvailabilityDto dto)
         {
+            if (User?.IsInRole("Doctor") == true)
+            {
+                var existing = await _service.GetByIdAsync(id);
+                if (existing == null) return NotFound("Availability record not found.");
+
+                var docClaim = User?.FindFirst("doctor_id")?.Value;
+                if (!Guid.TryParse(docClaim, out var authDocId) || existing.DoctorId != authDocId)
+                    return StatusCode(403, "You can only manage your own availability schedule.");
+            }
+
             try
             {
                 var result = await _service.UpdateAsync(id, dto);
@@ -92,9 +114,20 @@ namespace CareFlowAI.API.Controllers
         }
 
         // DELETE: api/DoctorAvailability/{id}
+        [Authorize(Roles = "Doctor,Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
+            if (User?.IsInRole("Doctor") == true)
+            {
+                var existing = await _service.GetByIdAsync(id);
+                if (existing == null) return NotFound("Availability record not found.");
+
+                var docClaim = User?.FindFirst("doctor_id")?.Value;
+                if (!Guid.TryParse(docClaim, out var authDocId) || existing.DoctorId != authDocId)
+                    return StatusCode(403, "You can only manage your own availability schedule.");
+            }
+
             var deleted = await _service.DeleteAsync(id);
 
             if (!deleted)

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
-const API_BASE = 'http://localhost:5241/api';
+import { apiFetch } from '../services/api';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const badge = (label, color) => (
@@ -52,12 +51,12 @@ const InventoryManagement = () => {
       const params = new URLSearchParams({
         search, filter, sortBy, sortDir, page, pageSize
       });
-      const res  = await fetch(`${API_BASE}/medicines?${params}`);
+      const res  = await apiFetch(`/api/medicines?${params}`);
       if (!res.ok) throw new Error('Failed to fetch medicines');
       const data = await res.json();
-      setMedicines(data.items);
-      setTotal(data.totalCount);
-      setTotalPages(data.totalPages);
+      setMedicines(data.items || []);
+      setTotal(data.totalCount || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -90,12 +89,11 @@ const InventoryManagement = () => {
   const handleSave = async () => {
     const method  = editMedicine ? 'PUT' : 'POST';
     const url     = editMedicine
-      ? `${API_BASE}/medicines/${editMedicine.id}`
-      : `${API_BASE}/medicines`;
+      ? `/api/medicines/${editMedicine.id}`
+      : `/api/medicines`;
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       if (!res.ok) throw new Error('Save failed');
@@ -106,15 +104,14 @@ const InventoryManagement = () => {
 
   const handleDeactivate = async (med) => {
     if (!window.confirm(`Deactivate "${med.name}"?`)) return;
-    await fetch(`${API_BASE}/medicines/${med.id}`, { method: 'DELETE' });
+    await apiFetch(`/api/medicines/${med.id}`, { method: 'DELETE' });
     fetchMedicines();
   };
 
   const handleRestock = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/medicines/${id}/restock`, {
+      const res = await apiFetch(`/api/medicines/${id}/restock`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantityToAdd: Number(restockQty) })
       });
       if (!res.ok) throw new Error('Restock failed');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
-const API_BASE = 'http://localhost:5241/api';
+import { apiFetch } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusColor = { Draft: '#fa8c16', Issued: '#1890ff', Dispensed: '#52c41a', Cancelled: '#ff4d4f' };
@@ -19,6 +19,7 @@ const Badge = ({ label, colorMap }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PrescriptionManagement = () => {
+  const { user } = useAuth();
   const [prescriptions, setPrescriptions] = useState([]);
   const [medicines, setMedicines]         = useState([]);
   const [patients, setPatients]           = useState([]);
@@ -46,7 +47,7 @@ const PrescriptionManagement = () => {
   });
 
   // Approve modal
-  const [approveTarget, setApproveTarget] = useState(null);
+  const [approveTarget, setApproveTarget]   = useState(null);
   const [approveDecision, setApproveDecision] = useState('Approved');
   const [approveNotes, setApproveNotes]     = useState('');
   const [approveDoctorId, setApproveDoctorId] = useState('');
@@ -61,12 +62,12 @@ const PrescriptionManagement = () => {
       const params = new URLSearchParams({ search, status, aiStatus, page, pageSize, sortDir: 'desc' });
       if (!status)   params.delete('status');
       if (!aiStatus) params.delete('aiStatus');
-      const res  = await fetch(`${API_BASE}/prescriptions?${params}`);
+      const res  = await apiFetch(`/api/prescriptions?${params}`);
       if (!res.ok) throw new Error('Failed to fetch prescriptions');
       const data = await res.json();
-      setPrescriptions(data.items);
-      setTotal(data.totalCount);
-      setTotalPages(data.totalPages);
+      setPrescriptions(data.items || []);
+      setTotal(data.totalCount || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [search, status, aiStatus, page]);
@@ -75,12 +76,12 @@ const PrescriptionManagement = () => {
 
   useEffect(() => {
     // Fetch medicines for the create form dropdown
-    fetch(`${API_BASE}/medicines?pageSize=50`)
+    apiFetch(`/api/medicines?pageSize=50`)
       .then(r => r.json())
       .then(d => setMedicines(d.items || []))
       .catch(() => {});
     // Fetch patients for dropdown
-    fetch(`${API_BASE}/patientprofiles`)
+    apiFetch(`/api/patientprofiles`)
       .then(r => r.json())
       .then(d => setPatients(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -90,9 +91,8 @@ const PrescriptionManagement = () => {
   const handleCreate = async () => {
     setCreating(true); setCreateResult(null);
     try {
-      const res = await fetch(`${API_BASE}/prescriptions`, {
+      const res = await apiFetch(`/api/prescriptions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPx)
       });
       const data = await res.json();
@@ -120,11 +120,11 @@ const PrescriptionManagement = () => {
   const handleApprove = async () => {
     if (!approveTarget) return;
     try {
-      const res = await fetch(`${API_BASE}/prescriptions/${approveTarget.id}/approve`, {
+      const doctorIdToUse = approveDoctorId || user?.doctorId || '00000000-0000-0000-0000-000000000001';
+      const res = await apiFetch(`/api/prescriptions/${approveTarget.id}/approve`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          doctorId: approveDoctorId || '00000000-0000-0000-0000-000000000001',
+          doctorId: doctorIdToUse,
           decision: approveDecision,
           doctorNotes: approveNotes
         })
@@ -140,7 +140,7 @@ const PrescriptionManagement = () => {
   // ── Dispense ─────────────────────────────────────────────────────────────────
   const handleDispense = async (id) => {
     if (!window.confirm('Dispense this prescription? Stock will be deducted.')) return;
-    const res = await fetch(`${API_BASE}/prescriptions/${id}/dispense`, { method: 'PATCH' });
+    const res = await apiFetch(`/api/prescriptions/${id}/dispense`, { method: 'PATCH' });
     const d   = await res.json();
     alert(d.message);
     fetchPrescriptions();

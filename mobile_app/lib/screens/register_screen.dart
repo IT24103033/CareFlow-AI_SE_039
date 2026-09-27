@@ -1,4 +1,4 @@
-// Component B – Register Screen (Redesigned)
+// Component B – Register Screen (Authenticated)
 // CareFlow AI healthcare aesthetic.
 
 import 'package:flutter/material.dart';
@@ -15,19 +15,26 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey   = GlobalKey<FormState>();
-  final _nameCtrl  = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _dobCtrl   = TextEditingController();
+  final _formKey      = GlobalKey<FormState>();
+  final _nameCtrl     = TextEditingController();
+  final _emailCtrl    = TextEditingController();
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _phoneCtrl    = TextEditingController();
+  final _dobCtrl      = TextEditingController();
 
-  bool    _isSubmitting = false;
-  bool    _isDone       = false;
-  String  _generatedId  = '';
+  bool    _isSubmitting   = false;
+  bool    _isDone         = false;
+  bool    _obscurePassword = true;
+  String  _generatedId    = '';
   String? _errorMessage;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
     _phoneCtrl.dispose();
     _dobCtrl.dispose();
     super.dispose();
@@ -44,21 +51,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final dob = _dobCtrl.text.trim().isEmpty
           ? '2000-01-01'
           : _dobCtrl.text.trim();
-      final patient = await AuthService.registerPatient(
+
+      final result = await AuthService.registerPatient(
+        username:    _usernameCtrl.text.trim(),
+        email:       _emailCtrl.text.trim(),
+        password:    _passwordCtrl.text,
         fullName:    _nameCtrl.text.trim(),
         dateOfBirth: dob,
       );
 
+      final user = result['user'] as Map<String, dynamic>?;
+      final assignedId = (user?['patientId'] ?? '').toString();
+
       setState(() {
-        _generatedId  = patient['id'].toString();
+        _generatedId  = assignedId;
         _isDone       = true;
         _isSubmitting = false;
       });
     } catch (e) {
+      String msg = e.toString();
+      if (msg.startsWith('Exception: ')) msg = msg.substring(11);
+      if (msg.startsWith('HttpException: ')) msg = msg.substring(15);
       setState(() {
         _isSubmitting = false;
-        _errorMessage =
-            'Registration failed. Make sure the backend is running.\nDetails: $e';
+        _errorMessage = msg;
       });
     }
   }
@@ -113,9 +129,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.bold)),
-                Text('Join CareFlow AI — it\'s free',
+                Text('Patient Registration Portal',
                     style: TextStyle(
-                        color: Color(0xFFAEC0D8), fontSize: 13)),
+                        color: AppTheme.teal,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2)),
               ],
             ),
           ],
@@ -149,83 +168,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         const Text(
-          'Your Patient ID has been assigned.\nSave it carefully — you will need it to sign in.',
+          'Your patient account and health records have been established.\nYou are now securely signed in.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textMid, fontSize: 13),
         ),
         const SizedBox(height: 24),
 
-        // Patient ID card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.cardWhite,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.teal.withValues(alpha: 0.4)),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('YOUR PATIENT ID',
-                  style: TextStyle(
-                      color: AppTheme.textLight,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _generatedId,
-                      style: const TextStyle(
-                          color: AppTheme.navyDark,
-                          fontSize: 13,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.bold),
+        if (_generatedId.isNotEmpty) ...[
+          // Patient ID card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.cardWhite,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.teal.withValues(alpha: 0.4)),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('YOUR ASSIGNED PATIENT ID',
+                    style: TextStyle(
+                        color: AppTheme.textLight,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _generatedId,
+                        style: const TextStyle(
+                            color: AppTheme.navyDark,
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.copy_outlined,
-                        color: AppTheme.teal, size: 20),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _generatedId));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Patient ID copied to clipboard!')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF3CD),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded,
-                  color: Color(0xFF856404), size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Save this ID! In a real hospital system it would be printed on your admission card.',
-                  style: TextStyle(color: Color(0xFF856404), fontSize: 12),
+                    IconButton(
+                      icon: const Icon(Icons.copy_outlined,
+                          color: AppTheme.teal, size: 20),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _generatedId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Patient ID copied to clipboard!')),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 32),
+          const SizedBox(height: 24),
+        ],
 
         ElevatedButton(
           onPressed: () => Navigator.pushAndRemoveUntil(
@@ -257,7 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Fill in your details below. A Patient ID will be generated and assigned to your account.',
+                  'Fill in your details below to create your patient account and assign your hospital health ID.',
                   style: TextStyle(color: Color(0xFF285E61), fontSize: 12),
                 ),
               ),
@@ -306,9 +304,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'e.g. Kamal Perera',
                     icon: Icons.person_outline),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty)
+                  if (v == null || v.trim().isEmpty) {
                     return 'Full name is required';
+                  }
                   if (v.trim().length < 3) return 'Enter your full name';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _fieldLabel('Email Address *'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(
+                    color: AppTheme.textDark, fontSize: 14),
+                decoration: AppTheme.inputDecoration(
+                    hint: 'e.g. kamal@example.com',
+                    icon: Icons.email_outlined),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Email address is required';
+                  }
+                  final email = v.trim();
+                  final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
+                  if (!emailRegex.hasMatch(email)) {
+                    return 'Please enter a valid email address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _fieldLabel('Username *'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _usernameCtrl,
+                style: const TextStyle(
+                    color: AppTheme.textDark, fontSize: 14),
+                decoration: AppTheme.inputDecoration(
+                    hint: 'Choose a login username',
+                    icon: Icons.account_circle_outlined),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Username is required';
+                  }
+                  if (v.trim().length < 3) return 'At least 3 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              _fieldLabel('Password *'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _passwordCtrl,
+                obscureText: _obscurePassword,
+                style: const TextStyle(
+                    color: AppTheme.textDark, fontSize: 14),
+                decoration: AppTheme.inputDecoration(
+                  hint: 'Enter a secure password (min 6 characters)',
+                  icon: Icons.lock_outline,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: AppTheme.textLight,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Password is required';
+                  if (v.length < 6) return 'Minimum 6 characters';
                   return null;
                 },
               ),
@@ -325,10 +394,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: '+94 77 123 4567',
                     icon: Icons.phone_outlined),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty)
+                  if (v == null || v.trim().isEmpty) {
                     return 'Phone number is required';
-                  if (v.trim().length < 9)
+                  }
+                  if (v.trim().length < 9) {
                     return 'Enter a valid phone number';
+                  }
                   return null;
                 },
               ),
@@ -352,7 +423,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     lastDate: DateTime.now(),
                     builder: (ctx, child) => Theme(
                       data: Theme.of(ctx).copyWith(
-                        colorScheme: ColorScheme.light(
+                        colorScheme: const ColorScheme.light(
                           primary: AppTheme.navyMid,
                           onPrimary: Colors.white,
                         ),

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../services/api';
 
 const WardManagement = () => {
     const [wards, setWards] = useState([]);
@@ -6,13 +7,16 @@ const WardManagement = () => {
 
     // This automatically runs when the page loads to fetch the live data
     useEffect(() => {
-        fetch('http://localhost:5241/api/Wards')
+        apiFetch('/api/Wards')
             .then(response => response.json())
             .then(data => {
-                setWards(data);
+                setWards(Array.isArray(data) ? data : []);
                 setLoading(false);
             })
-            .catch(error => console.error("Error fetching wards:", error));
+            .catch(error => {
+                console.error("Error fetching wards:", error);
+                setLoading(false);
+            });
     }, []);
 
     return (

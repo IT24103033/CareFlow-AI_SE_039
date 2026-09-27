@@ -1,0 +1,246 @@
+/* Keep existing code for container, search, header, etc. */
+.manage-patients-container {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  min-height: 100%;
+  position: relative;
+}
+
+.manage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.page-title {
+  color: #0ab39c;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.register-btn {
+  background: #0ab39c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.search-bar-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 15px;
+  margin-bottom: 30px;
+  max-width: 400px;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  margin-left: 10px;
+  width: 100%;
+  font-size: 14px;
+}
+
+/* NEW TILE GRID */
+.patients-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.patient-tile {
+  background: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-tile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  margin-right: 15px;
+}
+
+.patient-name {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-dark);
+}
+
+.patient-tile-body {
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+.patient-tile-body p {
+  margin: 5px 0;
+}
+
+.patient-tile-body strong {
+  color: var(--text-dark);
+}
+
+.patient-tile-actions {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admit-btn {
+  background: #0ab39c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admit-btn:hover {
+  background: #08907d;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+.close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+}
+
+.admit-modal {
+  max-width: 400px;
+}
+
+.ward-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin: 15px 0;
+  font-size: 14px;
+}
+
+.submit-admit-btn {
+  background: #0ab39c;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  width: 100%;
+  font-weight: bold;
+}
+
+/* AI FAB Styles (unchanged) */
+.ai-fab-container {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  z-index: 100;
+}
+
+.ai-fab {
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #6f42c1, #0ab39c);
+  color: white;
+  font-size: 28px;
+  border: none;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.ai-fab:hover {
+  transform: scale(1.1);
+}
+
+.ai-popup {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 300px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-popup h4 {
+  margin: 0 0 10px 0;
+  color: #6f42c1;
+}
+
+.ai-popup input, .ai-popup textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.ai-popup button {
+  background: #6f42c1;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 5px;
+}
+
+.ai-results {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+}
