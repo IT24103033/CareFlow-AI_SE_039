@@ -2,6 +2,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using Microsoft.EntityFrameworkCore;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -9,11 +10,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register the Planning Agent bridge service (AI logic lives in ai-orchestrator/Agents/)
+builder.Services.AddScoped<PlanningAgentService>();
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Component D: Pharmacy AI Validation/Safety Agent
-builder.Services.AddSingleton<PharmacyAiService>();
 
 // Component D: Third-Party SMS & Email Notification Service
 builder.Services.AddScoped<INotificationService, NotificationService>();

@@ -1,6 +1,9 @@
+@"
 # Environments
 .env
 appsettings.Development.json
+.neon
+.env.local
 
 # Node / React
 node_modules/
@@ -17,6 +20,26 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 
+# Android local configuration
+**/android/local.properties
+**/.gradle/
+
+# Xcode & iOS/macOS ephemeral build files
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Pods/
+**/ios/.symlinks/
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
 # OS generated files
-.DS_Store
+**/.DS_Store
 Thumbs.db
+.neon
+.env.local
+
