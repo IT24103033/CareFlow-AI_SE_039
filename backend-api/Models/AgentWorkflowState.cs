@@ -27,7 +27,7 @@ namespace CareFlowAI.API.Models
 
         // ── Approval State (human-in-the-loop) ───────────────────────────────
         /// <summary>
-        /// Doctor's decision on the AI plan: "Pending" | "Approved" | "Rejected"
+        /// Doctor's decision on the AI plan: "Pending" | "Approved" | "Rejected" | "RevisionRequested"
         /// </summary>
         public string ApprovalStatus { get; set; } = "Pending";
 

@@ -26,7 +26,7 @@ namespace CareFlowAI.API.Models
 
         // ── Triage Lifecycle ─────────────────────────────────────────────────
         /// <summary>
-        /// Workflow state: "Pending" | "InReview" | "Approved" | "Rejected"
+        /// Workflow state: "Pending" | "InReview" | "Approved" | "Rejected" | "RevisionRequested" | "AssessmentFailed"
         /// </summary>
         public string TriageStatus { get; set; } = "Pending";
 
@@ -35,7 +35,7 @@ namespace CareFlowAI.API.Models
         public string? DoctorNotes { get; set; }
 
         /// <summary>
-        /// Id of the doctor who approved/rejected. Populated by Component C (Scheduling).
+        /// Id of the authenticated doctor who recorded the review decision.
         /// </summary>
         public Guid? AssignedDoctorId { get; set; }
 

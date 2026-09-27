@@ -26,8 +26,12 @@ namespace CareFlowAI.API.Controllers
         // Saves the record, then immediately triggers the Planning Agent.
         // ────────────────────────────────────────────────────────────────────
         [HttpPost]
-        public async Task<IActionResult> Submit([FromBody] CreateTriageRequestDto dto)
+        public async Task<IActionResult> Submit([FromBody] CreateTriageRequestDto dto, CancellationToken cancellationToken = default)
         {
+            if (dto.PatientId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Symptoms) ||
+                dto.Symptoms.Trim().Length < 20 || dto.Symptoms.Length > 4000 || dto.Duration?.Length > 200)
+                return BadRequest("Provide a patient ID and symptoms between 20 and 4000 characters.");
+
             // 1. Validate that the patient exists
             var patient = await _context.PatientProfiles.FindAsync(dto.PatientId);
             if (patient == null)
@@ -37,32 +41,24 @@ namespace CareFlowAI.API.Controllers
             var record = new TriageRecord
             {
                 PatientId    = dto.PatientId,
-                Symptoms     = dto.Symptoms,
-                TriageStatus = "Pending"
+                Symptoms     = dto.Symptoms.Trim(),
+                TriageStatus = "Pending",
+                SeverityLevel = "Unassessed"
             };
+            // Persist the record AND running workflow before any context/model call.
+            var agentState = PlanningAgentService.CreateRunningState(record, dto.Duration);
             _context.TriageRecords.Add(record);
-            await _context.SaveChangesAsync();
-
-            // 3. Run the Planning Agent (Gemini AI) and persist its workflow state
-            var agentState = await _planningAgent.RunAsync(record);
             _context.AgentWorkflows.Add(agentState);
+            await _context.SaveChangesAsync(cancellationToken);
 
-            // 4. Update severity on the triage record based on the agent's output
-            if (agentState.AgentStatus == "Completed" && agentState.OutputPayload != null)
-            {
-                var plan = System.Text.Json.JsonSerializer.Deserialize<ClinicalPlan>(
-                    agentState.OutputPayload,
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); // ClinicalPlan from ai-orchestrator
-
-                if (plan != null)
-                {
-                    record.SeverityLevel = plan.UrgencyLevel;
-                    record.TriageStatus  = "InReview";     // Ready for doctor review
-                    record.UpdatedAt     = DateTime.UtcNow;
-                }
-            }
-
-            await _context.SaveChangesAsync();
+            await _planningAgent.RunAsync(record, agentState, cancellationToken);
+            var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
+            record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
+            record.SeverityLevel = plan?.UrgencyLevel ?? "Unassessed";
+            record.UpdatedAt = DateTime.UtcNow;
+            // Persist cancellation/failure even if the HTTP client disconnected. A process
+            // crash still leaves a durable Running row for the future recovery worker.
+            await _context.SaveChangesAsync(CancellationToken.None);
 
             return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState));
         }
@@ -72,7 +68,7 @@ namespace CareFlowAI.API.Controllers
         // Returns a single triage record with its AI plan.
         // Used by both Flutter (patient status) and React (doctor review).
         // ────────────────────────────────────────────────────────────────────
-        [HttpGet("{id}")]
+        [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var record = await _context.TriageRecords
@@ -82,7 +78,7 @@ namespace CareFlowAI.API.Controllers
             if (record == null)
                 return NotFound();
 
-            var agent = record.AgentWorkflows.FirstOrDefault(a => a.AgentName == "PlanningAgent");
+            var agent = LatestAgent(record);
             return Ok(MapToDto(record, agent));
         }
 
@@ -100,48 +96,97 @@ namespace CareFlowAI.API.Controllers
 
             var response = records.Select(r =>
             {
-                var agent = r.AgentWorkflows.FirstOrDefault(a => a.AgentName == "PlanningAgent");
+                var agent = LatestAgent(r);
                 return MapToDto(r, agent);
             });
 
             return Ok(response);
         }
 
-        // ────────────────────────────────────────────────────────────────────
-        // PATCH api/triage/{id}/review
-        // React dashboard: doctor approves or rejects the AI plan.
-        // This is the human-in-the-loop step.
-        // ────────────────────────────────────────────────────────────────────
-        [HttpPatch("{id}/review")]
+        // Separate staff endpoints preserve the existing mobile list response contract.
+        [HttpGet("review-queue")]
+        public async Task<IActionResult> ReviewQueue([FromQuery] TriageQueueQuery filter)
+        {
+            var access = CheckStaffAccess();
+            if (access != null) return access;
+            var query = _context.TriageRecords.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var search = filter.Search.Trim();
+                query = query.Where(t => t.Patient.FullName.Contains(search) || t.Symptoms.Contains(search));
+            }
+            if (filter.Status != null) query = query.Where(t => t.TriageStatus == filter.Status);
+            if (filter.Severity != null) query = query.Where(t => t.SeverityLevel == filter.Severity);
+            var total = await query.CountAsync();
+            var sorted = filter.Sort switch
+            {
+                "oldest" => query.OrderBy(t => t.CreatedAt),
+                "urgency" => query.OrderBy(t => t.SeverityLevel == "Critical" ? 0 :
+                    t.SeverityLevel == "High" ? 1 : t.SeverityLevel == "Medium" ? 2 : 3).ThenBy(t => t.CreatedAt),
+                _ => query.OrderByDescending(t => t.CreatedAt)
+            };
+            var records = await sorted.ThenBy(t => t.Id)
+                .Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
+                .Include(t => t.Patient).Include(t => t.AgentWorkflows).ToListAsync();
+            return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r))), total, filter.Page, filter.PageSize });
+        }
+
+        [HttpGet("review-queue/{id:guid}")]
+        public async Task<IActionResult> ReviewDetails(Guid id)
+        {
+            var access = CheckStaffAccess();
+            if (access != null) return access;
+            var record = await _context.TriageRecords.AsNoTracking().Include(t => t.Patient)
+                .Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
+            return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record)));
+        }
+
+        [HttpPatch("{id:guid}/review")]
         public async Task<IActionResult> Review(Guid id, [FromBody] ReviewTriageDto dto)
         {
-            if (dto.Decision != "Approved" && dto.Decision != "Rejected")
-                return BadRequest("Decision must be 'Approved' or 'Rejected'.");
+            var access = CheckStaffAccess();
+            if (access != null) return access;
+            if (!Guid.TryParse(User.FindFirst("doctor_id")?.Value, out var doctorId) ||
+                !await _context.Doctors.AnyAsync(d => d.Id == doctorId && d.IsActive))
+                return StatusCode(403, "An active doctor profile is required to review cases.");
+            if (!new[] { "Approved", "Rejected", "RevisionRequested" }.Contains(dto.Decision))
+                return BadRequest("Choose Approved, Rejected or RevisionRequested.");
+            if (dto.ExpectedUpdatedAt == null) return BadRequest("The case version is required.");
+            if (dto.DoctorNotes?.Length > 2000) return BadRequest("Notes must be at most 2000 characters.");
+            if (dto.Decision != "Approved" && string.IsNullOrWhiteSpace(dto.DoctorNotes))
+                return BadRequest("Provide a reason for rejection or revision.");
 
-            var record = await _context.TriageRecords
-                .Include(t => t.AgentWorkflows)
-                .FirstOrDefaultAsync(t => t.Id == id);
+            var record = await _context.TriageRecords.Include(t => t.Patient)
+                .Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
+            if (record == null) return NotFound();
+            var agent = LatestAgent(record);
+            var conflict = TriageReviewRules.Check(record, agent, dto.ExpectedUpdatedAt);
+            if (conflict != null) return Conflict(conflict);
 
-            if (record == null)
-                return NotFound();
-
-            // Update the triage record
-            record.TriageStatus      = dto.Decision;
-            record.DoctorNotes       = dto.DoctorNotes;
-            record.AssignedDoctorId  = dto.AssignedDoctorId;
-            record.UpdatedAt         = DateTime.UtcNow;
-
-            // Update the agent's approval status
-            var agent = record.AgentWorkflows.FirstOrDefault(a => a.AgentName == "PlanningAgent");
-            if (agent != null)
+            record.TriageStatus = dto.Decision;
+            record.DoctorNotes = dto.DoctorNotes?.Trim();
+            record.AssignedDoctorId = doctorId;
+            record.UpdatedAt = DateTime.UtcNow;
+            agent!.ApprovalStatus = dto.Decision;
+            agent.UpdatedAt = record.UpdatedAt;
+            try { await _context.SaveChangesAsync(); }
+            catch (DbUpdateConcurrencyException)
             {
-                agent.ApprovalStatus = dto.Decision;
-                agent.UpdatedAt      = DateTime.UtcNow;
+                return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
-
-            await _context.SaveChangesAsync();
             return Ok(MapToDto(record, agent));
         }
+
+        private IActionResult? CheckStaffAccess()
+        {
+            // Fail closed until Component A installs its authentication middleware.
+            if (User.Identity?.IsAuthenticated != true) return Unauthorized("Staff sign-in is required.");
+            return User.IsInRole("Doctor") ? null : StatusCode(403, "Doctor access is required.");
+        }
+
+        private static AgentWorkflowState? LatestAgent(TriageRecord record) => record.AgentWorkflows
+            .Where(a => a.AgentName == "PlanningAgent")
+            .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).FirstOrDefault();
 
         // ── Helper ───────────────────────────────────────────────────────────
         private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent) =>
@@ -149,6 +194,7 @@ namespace CareFlowAI.API.Controllers
             {
                 Id               = record.Id,
                 PatientId        = record.PatientId,
+                PatientName      = record.Patient?.FullName,
                 Symptoms         = record.Symptoms,
                 SeverityLevel    = record.SeverityLevel,
                 TriageStatus     = record.TriageStatus,
@@ -156,9 +202,11 @@ namespace CareFlowAI.API.Controllers
                 AssignedDoctorId = record.AssignedDoctorId,
                 CreatedAt        = record.CreatedAt,
                 UpdatedAt        = record.UpdatedAt,
-                AiPlan           = agent?.OutputPayload,
+                AiPlan           = TriageReviewRules.ReadPlan(agent?.OutputPayload) == null ? null : agent?.OutputPayload,
                 AiAgentStatus    = agent?.AgentStatus,
-                ApprovalStatus   = agent?.ApprovalStatus
+                ApprovalStatus   = agent?.ApprovalStatus,
+                AnalysisMethod   = TriageReviewRules.ReadPlan(agent?.OutputPayload)?.AnalysisMethod,
+                PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload)
             };
     }
 }

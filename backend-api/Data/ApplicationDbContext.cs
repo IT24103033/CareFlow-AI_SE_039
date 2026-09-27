@@ -54,6 +54,7 @@ namespace CareFlowAI.API.Data
                       .HasDefaultValueSql("now()");
 
                 entity.Property(t => t.UpdatedAt)
+                      .IsConcurrencyToken()
                       .HasDefaultValueSql("now()");
             });
 

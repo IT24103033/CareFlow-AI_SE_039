@@ -273,6 +273,7 @@ namespace CareFlowAI.API.Migrations
                         .HasDefaultValue("Pending");
 
                     b.Property<DateTime>("UpdatedAt")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");

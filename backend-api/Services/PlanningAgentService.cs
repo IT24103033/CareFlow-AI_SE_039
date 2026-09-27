@@ -1,26 +1,16 @@
+using System.Diagnostics;
 using System.Text.Json;
-using Mscc.GenerativeAI;
 using CareFlowAI.API.Models;
 
-namespace CareFlowAI.API.Services
-{
-    /// <summary>
-    /// Hybrid Planning Agent — combines instant rules-based critical detection
-    /// with Google Gemini 2.0 Flash for nuanced clinical analysis.
-    ///
-    /// Strategy:
-    ///   1. Scan symptoms for CRITICAL/HIGH keywords first (no network call — instant).
-    ///      If matched → return immediately so the doctor sees it right away.
-    ///   2. For non-critical symptoms → call Gemini for a full, nuanced clinical plan.
-    ///   3. If Gemini fails (network error, quota) → fall back to rules so the system
-    ///      never goes down.
-    /// </summary>
-    public class PlanningAgentService
-    {
-        private readonly IConfiguration _config;
+namespace CareFlowAI.API.Services;
 
-        // ── Critical & High keyword rules (checked BEFORE calling Gemini) ─────
-        // These cover emergency conditions where every second counts.
+/// <summary>
+/// Component B planner. Owns assessment and a controlled delegation plan, not
+/// scheduling, safety-agent execution, or appointment confirmation.
+/// </summary>
+public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAssessmentClient assessmentClient,
+    IConfiguration configuration, ILogger<PlanningAgentService>? logger = null)
+{
         private static readonly List<(string[] Keywords, string Specialist, string Urgency, string Action)> _criticalRules = new()
         {
             (new[] { "chest pain", "chest tightness", "heart attack", "palpitation" },
@@ -45,198 +35,166 @@ namespace CareFlowAI.API.Services
              "Urologist",     "High",     "Schedule urgent appointment within 24 hours."),
         };
 
-        // ── Fallback rules (used only if Gemini API fails) ────────────────────
-        private static readonly List<(string[] Keywords, string Specialist, string Urgency)> _fallbackRules = new()
+
+    public static AgentWorkflowState CreateRunningState(TriageRecord record, string? duration)
+    {
+        var state = new AgentWorkflowState
         {
-            (new[] { "abdominal pain", "stomach pain", "nausea", "vomiting", "diarrhea" },
-             "Gastroenterologist", "Medium"),
-
-            (new[] { "back pain", "joint pain", "muscle pain", "fracture", "sprain", "knee pain" },
-             "Orthopedist", "Medium"),
-
-            (new[] { "eye pain", "blurred vision", "redness in eye" },
-             "Ophthalmologist", "Medium"),
-
-            (new[] { "anxiety", "depression", "panic attack", "insomnia" },
-             "Psychiatrist", "Medium"),
-
-            (new[] { "rash", "itching", "skin irritation", "hives", "eczema" },
-             "Dermatologist", "Low"),
-
-            (new[] { "cough", "cold", "fever", "sore throat", "flu", "fatigue" },
-             "General Practitioner", "Low"),
+            TriageRecordId = record.Id, AgentName = "PlanningAgent", AgentStatus = "Running",
+            ApprovalStatus = "Pending", StartedAt = DateTime.UtcNow
         };
-
-        public PlanningAgentService(IConfiguration config)
-        {
-            _config = config;
-        }
-
-        // ── Public Entry Point ────────────────────────────────────────────────
-
-        public async Task<AgentWorkflowState> RunAsync(TriageRecord record)
-        {
-            var state = new AgentWorkflowState
-            {
-                TriageRecordId = record.Id,
-                AgentName      = "PlanningAgent",
-                AgentStatus    = "Running",
-                ApprovalStatus = "Pending",
-                InputPayload   = JsonSerializer.Serialize(new
-                {
-                    PatientId = record.PatientId,
-                    Symptoms  = record.Symptoms,
-                    Severity  = record.SeverityLevel
-                }),
-                StartedAt = DateTime.UtcNow
-            };
-
-            try
-            {
-                var plan = await AnalyseAsync(record.Symptoms);
-                state.OutputPayload = JsonSerializer.Serialize(plan);
-                state.AgentStatus   = "Completed";
-                state.CompletedAt   = DateTime.UtcNow;
-                state.UpdatedAt     = DateTime.UtcNow;
-            }
-            catch (Exception ex)
-            {
-                state.AgentStatus  = "Failed";
-                state.ErrorMessage = ex.Message;
-                state.CompletedAt  = DateTime.UtcNow;
-                state.UpdatedAt    = DateTime.UtcNow;
-            }
-
-            return state;
-        }
-
-        // ── Hybrid Analysis Logic ─────────────────────────────────────────────
-
-        private async Task<ClinicalPlan> AnalyseAsync(string symptoms)
-        {
-            var lower = symptoms.ToLowerInvariant();
-
-            // ── STEP 1: Critical/High keyword scan (instant, no API call) ─────
-            // If the patient has an emergency keyword, we return immediately.
-            // This ensures critical cases reach doctors without any delay.
-            foreach (var (keywords, specialist, urgency, action) in _criticalRules)
-            {
-                var matched = keywords.Where(k => lower.Contains(k)).ToList();
-                if (matched.Any())
-                {
-                    return new ClinicalPlan
-                    {
-                        SuggestedSpecialist = specialist,
-                        UrgencyLevel        = urgency,
-                        RecommendedAction   = action,
-                        Rationale           = $"⚠️ CRITICAL KEYWORDS DETECTED by rule engine: {string.Join(", ", matched)}. " +
-                                              $"Immediate escalation required — Gemini analysis bypassed for speed.",
-                        AnalysisMethod      = "RuleEngine"
-                    };
-                }
-            }
-
-            // ── STEP 2: Gemini AI for nuanced, non-critical analysis ──────────
-            // Non-emergency symptoms benefit from Gemini's broader medical knowledge.
-            try
-            {
-                var plan = await CallGeminiAsync(symptoms);
-                plan.AnalysisMethod = "GeminiAI";
-                return plan;
-            }
-            catch
-            {
-                // ── STEP 3: Fallback rules if Gemini is unavailable ───────────
-                // System must NEVER go down even if the Gemini API has an outage.
-                return FallbackRules(lower);
-            }
-        }
-
-        // ── Gemini API Call ───────────────────────────────────────────────────
-
-        private async Task<ClinicalPlan> CallGeminiAsync(string symptoms)
-        {
-            var apiKey    = _config["Gemini:ApiKey"]!;
-            var modelName = _config["Gemini:Model"] ?? "gemini-2.0-flash";
-
-            var googleAI = new GoogleAI(apiKey);
-            var model    = googleAI.GenerativeModel(modelName);
-
-            var prompt = $$"""
-                You are a clinical triage AI assistant for a hospital system.
-                Analyse the following patient symptoms and return ONLY a valid JSON object.
-
-                Patient symptoms: "{{symptoms}}"
-
-                Return exactly this JSON structure (no markdown, no extra text):
-                {
-                  "SuggestedSpecialist": "<medical specialist type>",
-                  "UrgencyLevel": "<one of: Critical, High, Medium, Low>",
-                  "RecommendedAction": "<specific action for the doctor>",
-                  "Rationale": "<brief clinical reasoning>"
-                }
-                """;
-
-            var response = await model.GenerateContent(prompt);
-            var raw      = response.Text ?? throw new Exception("Empty response from Gemini.");
-
-            // Strip markdown code fences if Gemini adds them
-            var json = raw
-                .Replace("```json", "")
-                .Replace("```", "")
-                .Trim();
-
-            var plan = JsonSerializer.Deserialize<ClinicalPlan>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            return plan ?? throw new Exception("Failed to parse Gemini response into ClinicalPlan.");
-        }
-
-        // ── Fallback Rules (Gemini unavailable) ───────────────────────────────
-
-        private static ClinicalPlan FallbackRules(string lower)
-        {
-            foreach (var (keywords, specialist, urgency) in _fallbackRules)
-            {
-                if (keywords.Any(k => lower.Contains(k)))
-                    return new ClinicalPlan
-                    {
-                        SuggestedSpecialist = specialist,
-                        UrgencyLevel        = urgency,
-                        RecommendedAction   = BuildAction(urgency),
-                        Rationale           = "Analysed by fallback rule engine (Gemini unavailable).",
-                        AnalysisMethod      = "FallbackRules"
-                    };
-            }
-
-            return new ClinicalPlan
-            {
-                SuggestedSpecialist = "General Practitioner",
-                UrgencyLevel        = "Low",
-                RecommendedAction   = "Schedule a routine appointment for assessment.",
-                Rationale           = "No specific indicators detected. Routine review recommended.",
-                AnalysisMethod      = "FallbackRules"
-            };
-        }
-
-        private static string BuildAction(string urgency) => urgency switch
-        {
-            "Critical" => "Send to Emergency Department immediately.",
-            "High"     => "Schedule urgent appointment within 24 hours.",
-            "Medium"   => "Schedule appointment within 3–5 days.",
-            _          => "Schedule a routine appointment for assessment."
-        };
+        state.InputPayload = JsonSerializer.Serialize(new PlanningInput(state.Id, record.PatientId,
+            PlanningPlanValidator.Objective, record.Symptoms, duration?.Trim()));
+        state.OutputPayload = JsonSerializer.Serialize(new ClinicalPlan { SchemaVersion = 2,
+            Execution = new PlanningExecutionSummary() });
+        return state;
     }
 
-    // ── Output Model ──────────────────────────────────────────────────────────
-
-    public class ClinicalPlan
+    public async Task RunAsync(TriageRecord record, AgentWorkflowState state, CancellationToken cancellationToken = default)
     {
-        public string SuggestedSpecialist { get; set; } = string.Empty;
-        public string UrgencyLevel        { get; set; } = string.Empty;
-        public string RecommendedAction   { get; set; } = string.Empty;
-        public string Rationale           { get; set; } = string.Empty;
-        /// <summary>Tracks which analysis path was used: RuleEngine | GeminiAI | FallbackRules</summary>
-        public string AnalysisMethod      { get; set; } = string.Empty;
+        if (state.TriageRecordId != record.Id || state.AgentStatus != "Running")
+            throw new ArgumentException("Only the matching running workflow can be executed.");
+        var trace = new PlanningExecutionSummary();
+        ClinicalPlan? plan = null;
+        string? failure = null;
+        var maxAttempts = Math.Clamp(configuration.GetValue("Planning:MaxAttempts", 2), 1, 3);
+        var attemptTimeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:AttemptTimeoutSeconds", 10), 1, 30));
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:WorkflowTimeoutSeconds", 30), 1, 90)));
+        try
+        {
+            var input = JsonSerializer.Deserialize<PlanningInput>(state.InputPayload);
+            if (input == null || input.PatientId != record.PatientId || input.WorkflowId != state.Id ||
+                input.Objective != PlanningPlanValidator.Objective || input.Symptoms != record.Symptoms ||
+                string.IsNullOrWhiteSpace(input.Symptoms) || input.Symptoms.Trim().Length < 20 || input.Symptoms.Length > 4000 ||
+                input.Duration?.Length > 200)
+            {
+                failure = "INVALID_INPUT";
+            }
+            else
+            {
+                budget.Token.ThrowIfCancellationRequested();
+                var timer = Stopwatch.StartNew();
+                var context = await contextTool.GetPatientProfileAsync(input.PatientId, budget.Token).WaitAsync(budget.Token);
+                timer.Stop();
+                if (context == null || context.PatientId != input.PatientId || context.MedicalHistorySummary == null ||
+                    context.MedicalHistorySummary.Length > 4000)
+                {
+                    trace.Events.Add(new("GetPatientProfile", "InvalidContext", timer.ElapsedMilliseconds));
+                    failure = "INVALID_PATIENT_CONTEXT";
+                }
+                else
+                {
+                    trace.Events.Add(new("GetPatientProfile", "Completed", timer.ElapsedMilliseconds));
+                    state.InputPayload = JsonSerializer.Serialize(input with { Context = context });
+                    plan = MatchExistingKeywordRules(input.Symptoms);
+                    if (plan != null) trace.Events.Add(new("KeywordScreen", "Matched", 0));
+                    else
+                    {
+                        var assessmentInput = new ClinicalAssessmentInput(input.Symptoms, input.Duration, context.MedicalHistorySummary);
+                        for (var attempt = 1; attempt <= maxAttempts && plan == null; attempt++)
+                        {
+                            budget.Token.ThrowIfCancellationRequested();
+                            trace.ModelAttempts = attempt;
+                            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(budget.Token);
+                            deadline.CancelAfter(attemptTimeout);
+                            timer.Restart();
+                            try
+                            {
+                                var response = await assessmentClient.AssessAsync(assessmentInput, deadline.Token).WaitAsync(deadline.Token);
+                                plan = PlanningPlanValidator.ParseAssessment(response);
+                                failure = plan == null ? "INVALID_MODEL_OUTPUT" : null;
+                                trace.Events.Add(new("AssessSymptoms", plan == null ? "InvalidOutput" : "Completed", timer.ElapsedMilliseconds));
+                                if (plan != null) plan.AnalysisMethod = "GeminiAI";
+                            }
+                            catch (AssessmentConfigurationException)
+                            {
+                                failure = "PROVIDER_NOT_CONFIGURED";
+                                trace.Events.Add(new("AssessSymptoms", "NotConfigured", timer.ElapsedMilliseconds));
+                                break;
+                            }
+                            catch (OperationCanceledException) when (!budget.IsCancellationRequested)
+                            {
+                                failure = "PROVIDER_TIMEOUT";
+                                trace.Events.Add(new("AssessSymptoms", "TimedOut", timer.ElapsedMilliseconds));
+                            }
+                            catch (OperationCanceledException) { throw; }
+                            catch (Exception exception)
+                            {
+                                // Provider exceptions may contain request bodies or credentials.
+                                logger?.LogWarning("Planning workflow {WorkflowId} provider attempt {Attempt} failed with exception type {ExceptionType}",
+                                    state.Id, attempt, exception.GetType().Name);
+                                failure = "PROVIDER_UNAVAILABLE";
+                                trace.Events.Add(new("AssessSymptoms", "Unavailable", timer.ElapsedMilliseconds));
+                            }
+                        }
+                    }
+                    if (plan != null)
+                    {
+                        budget.Token.ThrowIfCancellationRequested();
+                        plan.SchemaVersion = 2;
+                        plan.Objective = PlanningPlanValidator.Objective;
+                        plan.Steps = PlanningPlanValidator.BuildSteps(plan.UrgencyLevel);
+                        if (string.IsNullOrWhiteSpace(context.MedicalHistorySummary))
+                            plan.Warnings.Add("Patient medical history is not recorded; confirm it during review.");
+                        if (plan.AnalysisMethod == "RuleEngine")
+                            plan.Warnings.Add("Keyword screening is not a completed Safety Agent validation.");
+                        trace.Status = "Completed";
+                        plan.Execution = trace;
+                        if (!PlanningPlanValidator.IsStructuredPlanValid(plan))
+                        { failure = "INVALID_PLAN"; plan = null; }
+                        else
+                        { failure = null; trace.Events.Add(new("ValidatePlan", "Passed", 0)); }
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            failure = cancellationToken.IsCancellationRequested ? "CANCELLED" : "WORKFLOW_TIMEOUT";
+            plan = null;
+        }
+        catch (Exception)
+        {
+            failure = "PLANNING_FAILED";
+            plan = null;
+        }
+        if (plan == null)
+        {
+            trace.Status = "Failed";
+            trace.FailureCode = failure ?? "PLANNING_FAILED";
+            trace.Events.Add(new("PlanningAgent", trace.FailureCode, 0));
+            plan = new ClinicalPlan { SchemaVersion = 2, Execution = trace };
+            state.AgentStatus = "Failed";
+            state.ErrorMessage = trace.FailureCode;
+            logger?.LogWarning("Planning workflow {WorkflowId} failed: {FailureCode}; model attempts {ModelAttempts}",
+                state.Id, trace.FailureCode, trace.ModelAttempts);
+            foreach (var step in trace.Events)
+                logger?.LogWarning("Planning workflow {WorkflowId}: {Operation} {Outcome} in {DurationMs} ms",
+                    state.Id, step.Operation, step.Outcome, step.DurationMs);
+        }
+        else
+        {
+            state.AgentStatus = "Completed";
+            state.ErrorMessage = null;
+        }
+        state.OutputPayload = JsonSerializer.Serialize(plan);
+        state.CompletedAt = DateTime.UtcNow;
+        state.UpdatedAt = state.CompletedAt.Value;
+    }
+
+    private static ClinicalPlan? MatchExistingKeywordRules(string symptoms)
+    {
+        var lower = symptoms.ToLowerInvariant();
+        foreach (var (keywords, specialist, urgency, action) in _criticalRules)
+        {
+            if (keywords.Any(lower.Contains)) return new ClinicalPlan
+            {
+                SuggestedSpecialist = specialist, UrgencyLevel = urgency, RecommendedAction = action,
+                Rationale = "The existing keyword screen detected: " + string.Join(", ", keywords.Where(lower.Contains)),
+                AnalysisMethod = "RuleEngine"
+            };
+        }
+        return null;
     }
 }

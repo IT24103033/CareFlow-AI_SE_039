@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using CareFlowAI.API.Services;
+
 namespace CareFlowAI.API.DTOs
 {
     /// <summary>
@@ -6,7 +9,10 @@ namespace CareFlowAI.API.DTOs
     public class CreateTriageRequestDto
     {
         public Guid PatientId { get; set; }
+        [Required, StringLength(4000, MinimumLength = 20)]
         public string Symptoms { get; set; } = string.Empty;
+        [StringLength(200)]
+        public string? Duration { get; set; }
     }
 
     /// <summary>
@@ -14,19 +20,24 @@ namespace CareFlowAI.API.DTOs
     /// </summary>
     public class ReviewTriageDto
     {
-        /// <summary>"Approved" or "Rejected"</summary>
+        /// <summary>Approved, Rejected or RevisionRequested.</summary>
+        [Required, RegularExpression("^(Approved|Rejected|RevisionRequested)$")]
         public string Decision { get; set; } = string.Empty;
+        [StringLength(2000)]
         public string? DoctorNotes { get; set; }
-        public Guid? AssignedDoctorId { get; set; }
+        // Reviewer identity is derived from the authenticated doctor_id claim.
+        [Required]
+        public DateTime? ExpectedUpdatedAt { get; set; }
     }
 
     /// <summary>
-    /// Safe read-only response returned to clients — no internal IDs leaked.
+    /// Triage response shared by clients; staff endpoints additionally populate PatientName.
     /// </summary>
     public class TriageResponseDto
     {
         public Guid Id { get; set; }
         public Guid PatientId { get; set; }
+        public string? PatientName { get; set; }
         public string Symptoms { get; set; } = string.Empty;
         public string SeverityLevel { get; set; } = string.Empty;
         public string TriageStatus { get; set; } = string.Empty;
@@ -40,6 +51,21 @@ namespace CareFlowAI.API.DTOs
         public string? AiAgentStatus    { get; set; }
         public string? ApprovalStatus   { get; set; }
         /// <summary>Which analysis path was used: RuleEngine | GeminiAI | FallbackRules</summary>
+        public PlanningExecutionSummary? PlanningExecution { get; set; }
         public string? AnalysisMethod   { get; set; }
+    }
+}
+
+namespace CareFlowAI.API.DTOs
+{
+    public class TriageQueueQuery
+    {
+        [StringLength(100)] public string? Search { get; set; }
+        [RegularExpression("^(Pending|InReview|Approved|Rejected|RevisionRequested|AssessmentFailed)$")]
+        public string? Status { get; set; }
+        [RegularExpression("^(Low|Medium|High|Critical|Unassessed)$")] public string? Severity { get; set; }
+        [RegularExpression("^(newest|oldest|urgency)$")] public string Sort { get; set; } = "newest";
+        [Range(1, 100000)] public int Page { get; set; } = 1;
+        [Range(1, 100)] public int PageSize { get; set; } = 10;
     }
 }

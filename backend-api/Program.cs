@@ -10,7 +10,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register the Planning Agent bridge service (AI logic lives in ai-orchestrator/Agents/)
+// Component B: controlled context access, model adapter and planner.
+builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
+builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
 builder.Services.AddScoped<PlanningAgentService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

@@ -4,22 +4,26 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/triage_record.dart';
-import '../services/auth_service.dart';
-import '../services/triage_service.dart';
+import '../services/triage_repository.dart';
 import '../theme/app_theme.dart';
 
 class TriageDashboardScreen extends StatefulWidget {
-  const TriageDashboardScreen({super.key});
+  final TriageRepository repository;
+  const TriageDashboardScreen({
+    super.key,
+    this.repository = const ApiTriageRepository(),
+  });
 
   @override
   State<TriageDashboardScreen> createState() => _TriageDashboardScreenState();
 }
 
 class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
-  List<TriageRecord> _records   = [];
-  bool               _isLoading = true;
-  String?            _error;
-  String?            _patientName;
+  List<TriageRecord> _records = [];
+  bool _isLoading = true;
+  String? _error;
+  String? _patientName;
+  int _loadVersion = 0;
 
   @override
   void initState() {
@@ -28,21 +32,24 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _isLoading = true; _error = null; });
+    final version = ++_loadVersion;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final id   = await AuthService.getPatientId();
-      final name = await AuthService.getPatientName();
-      if (id == null) throw Exception('Not logged in.');
-
-      final raw = await TriageService.getMyTriageRecords(id);
+      final history = await widget.repository.loadHistory();
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _records     = raw.map(TriageRecord.fromJson).toList();
-        _patientName = name;
-        _isLoading   = false;
+        _records = history.records;
+        _patientName = history.patientName;
+        _isLoading = false;
       });
     } catch (e) {
+      if (!mounted || version != _loadVersion) return;
       setState(() {
-        _error     = 'Could not load records.\nMake sure the backend is running.\n\n$e';
+        _error =
+            'Could not load records.\nMake sure the backend is running.\n\n$e';
         _isLoading = false;
       });
     }
@@ -51,43 +58,75 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
   // ── Status helpers ─────────────────────────────────────────────────────────
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'approved':  return AppTheme.success;
-      case 'rejected':  return AppTheme.danger;
-      case 'inreview':  return const Color(0xFF3182CE);
-      default:          return AppTheme.pending;
+      case 'approved':
+        return AppTheme.success;
+      case 'rejected':
+        return AppTheme.danger;
+      case 'assessmentfailed':
+        return AppTheme.danger;
+      case 'inreview':
+        return const Color(0xFF3182CE);
+      default:
+        return AppTheme.pending;
     }
   }
 
   String _statusLabel(String status) {
     switch (status.toLowerCase()) {
-      case 'inreview':  return 'In Review';
-      case 'approved':  return 'Approved';
-      case 'rejected':  return 'Rejected';
-      default:          return 'Pending';
+      case 'inreview':
+        return 'In Review';
+      case 'assessmentfailed':
+        return 'Assessment unavailable';
+      case 'revisionrequested':
+        return 'Revision requested';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return 'Pending';
     }
   }
 
   IconData _statusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'approved':  return Icons.check_circle_outline;
-      case 'rejected':  return Icons.cancel_outlined;
-      case 'inreview':  return Icons.manage_search_outlined;
-      default:          return Icons.hourglass_top_outlined;
+      case 'approved':
+        return Icons.check_circle_outline;
+      case 'rejected':
+        return Icons.cancel_outlined;
+      case 'inreview':
+        return Icons.manage_search_outlined;
+      case 'assessmentfailed':
+        return Icons.error_outline;
+      case 'revisionrequested':
+        return Icons.edit_note;
+      default:
+        return Icons.hourglass_top_outlined;
     }
   }
 
   Color _severityColor(String? level) {
     switch ((level ?? '').toLowerCase()) {
-      case 'critical': return AppTheme.danger;
-      case 'high':     return AppTheme.warning;
-      case 'medium':   return AppTheme.pending;
-      default:         return AppTheme.success;
+      case 'critical':
+        return AppTheme.danger;
+      case 'high':
+        return AppTheme.warning;
+      case 'medium':
+        return AppTheme.pending;
+      case 'low':
+        return AppTheme.success;
+      default:
+        return AppTheme.textMid;
     }
   }
 
   Map<String, dynamic>? _parseAiPlan(String? raw) {
     if (raw == null) return null;
-    try { return jsonDecode(raw) as Map<String, dynamic>; } catch (_) { return null; }
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -123,20 +162,28 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios,
-                        color: Colors.white, size: 20),
+                    icon: const Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
-                    child: Text('My Triage Records',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'My Triage Records',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.refresh_outlined,
-                        color: Color(0xFFAEC0D8)),
+                    icon: const Icon(
+                      Icons.refresh_outlined,
+                      color: Color(0xFFAEC0D8),
+                    ),
                     onPressed: _load,
                   ),
                 ],
@@ -148,7 +195,9 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
                 child: Text(
                   '${_records.length} submission${_records.length == 1 ? '' : 's'} for $_patientName',
                   style: const TextStyle(
-                      color: Color(0xFFAEC0D8), fontSize: 13),
+                    color: Color(0xFFAEC0D8),
+                    fontSize: 13,
+                  ),
                 ),
               ),
             Container(
@@ -156,8 +205,7 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
               margin: const EdgeInsets.only(top: 14),
               decoration: const BoxDecoration(
                 color: AppTheme.pageWhite,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
             ),
           ],
@@ -174,8 +222,10 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
           children: [
             CircularProgressIndicator(color: AppTheme.teal),
             SizedBox(height: 16),
-            Text('Loading your records...',
-                style: TextStyle(color: AppTheme.textMid)),
+            Text(
+              'Loading your records...',
+              style: TextStyle(color: AppTheme.textMid),
+            ),
           ],
         ),
       );
@@ -188,26 +238,34 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off_outlined,
-                  color: AppTheme.textLight, size: 56),
+              Icon(
+                Icons.cloud_off_outlined,
+                color: AppTheme.textLight,
+                size: 56,
+              ),
               const SizedBox(height: 16),
-              const Text('Something went wrong',
-                  style: TextStyle(
-                      color: AppTheme.textDark,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
+              const Text(
+                'Something went wrong',
+                style: TextStyle(
+                  color: AppTheme.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text(_error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: AppTheme.textMid, fontSize: 12)),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.textMid, fontSize: 12),
+              ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Try Again'),
                 style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(180, 46)),
+                  minimumSize: const Size(180, 46),
+                ),
               ),
             ],
           ),
@@ -227,26 +285,32 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 80, height: 80,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
                         color: AppTheme.teal.withValues(alpha: 0.08),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.list_alt_outlined,
-                          color: AppTheme.teal, size: 40),
+                      child: const Icon(
+                        Icons.list_alt_outlined,
+                        color: AppTheme.teal,
+                        size: 40,
+                      ),
                     ),
                     const SizedBox(height: 20),
-                    const Text('No Triage Records Yet',
-                        style: TextStyle(
-                            color: AppTheme.textDark,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
+                    const Text(
+                      'No Triage Records Yet',
+                      style: TextStyle(
+                        color: AppTheme.textDark,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     const Text(
                       'Submit your first symptom report and our AI will triage it for doctor review.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: AppTheme.textMid, fontSize: 13),
+                      style: TextStyle(color: AppTheme.textMid, fontSize: 13),
                     ),
                   ],
                 ),
@@ -269,161 +333,214 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
 
   Widget _buildLegend() {
     final items = [
-      ('Pending',   AppTheme.pending),
+      ('Pending', AppTheme.pending),
       ('In Review', const Color(0xFF3182CE)),
-      ('Approved',  AppTheme.success),
-      ('Rejected',  AppTheme.danger),
+      ('Approved', AppTheme.success),
+      ('Rejected', AppTheme.danger),
+      ('Assessment unavailable', AppTheme.danger),
+      ('Revision requested', AppTheme.warning),
     ];
-    return Row(
+    return Wrap(
+      runSpacing: 8,
       children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(right: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8, height: 8,
-                      decoration: BoxDecoration(
-                          color: item.$2,
-                          borderRadius: BorderRadius.circular(4)),
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: item.$2,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    const SizedBox(width: 4),
-                    Text(item.$1,
-                        style: const TextStyle(
-                            color: AppTheme.textMid, fontSize: 11)),
-                  ],
-                ),
-              ))
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    item.$1,
+                    style: const TextStyle(
+                      color: AppTheme.textMid,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
           .toList(),
     );
   }
 
   Widget _buildRecordCard(TriageRecord record) {
-    final statusColor   = _statusColor(record.triageStatus);
+    final statusColor = _statusColor(record.triageStatus);
     final severityColor = _severityColor(record.severityLevel);
-    final aiPlan        = _parseAiPlan(record.aiPlan);
+    final aiPlan = _parseAiPlan(record.aiPlan);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppTheme.cardWhite,
         borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(color: statusColor, width: 4),
-        ),
+        border: Border(left: BorderSide(color: statusColor, width: 4)),
         boxShadow: AppTheme.subtleShadow,
       ),
-      child: Theme(
-        data: Theme.of(context)
-            .copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          childrenPadding:
-              const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          leading: Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
             ),
-            child: Icon(_statusIcon(record.triageStatus),
-                color: statusColor, size: 24),
-          ),
-          title: Text(
-            record.symptoms.length > 60
-                ? '${record.symptoms.substring(0, 60)}...'
-                : record.symptoms,
-            style: const TextStyle(
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _statusIcon(record.triageStatus),
+                color: statusColor,
+                size: 24,
+              ),
+            ),
+            title: Text(
+              record.symptoms.length > 60
+                  ? '${record.symptoms.substring(0, 60)}...'
+                  : record.symptoms,
+              style: const TextStyle(
                 color: AppTheme.textDark,
                 fontSize: 13,
-                fontWeight: FontWeight.w600),
-            maxLines: 2,
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _smallChip(_statusLabel(record.triageStatus), statusColor),
+                  if (record.severityLevel.isNotEmpty)
+                    _smallChip(record.severityLevel, severityColor),
+                ],
+              ),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _smallChip(_statusLabel(record.triageStatus), statusColor),
-                const SizedBox(width: 8),
-                if (record.severityLevel.isNotEmpty)
-                  _smallChip(record.severityLevel, severityColor),
+                Text(
+                  _formatDate(record.createdAt),
+                  style: const TextStyle(
+                    color: AppTheme.textLight,
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppTheme.textLight,
+                  size: 20,
+                ),
               ],
             ),
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                _formatDate(record.createdAt),
-                style: const TextStyle(
-                    color: AppTheme.textLight, fontSize: 10),
+              const Divider(color: AppTheme.borderGray),
+              const SizedBox(height: 8),
+
+              _detailRow(
+                'Symptoms',
+                record.symptoms,
+                Icons.description_outlined,
               ),
-              const SizedBox(height: 4),
-              const Icon(Icons.keyboard_arrow_down,
-                  color: AppTheme.textLight, size: 20),
+              const SizedBox(height: 10),
+
+              if (record.doctorNotes != null && record.doctorNotes!.isNotEmpty)
+                _detailRow(
+                  'Doctor Notes',
+                  record.doctorNotes!,
+                  Icons.local_hospital_outlined,
+                ),
+
+              if (record.triageStatus == 'AssessmentFailed')
+                const Text(
+                  'Assessment unavailable. No urgency has been assigned; contact staff for follow-up.',
+                  style: TextStyle(color: AppTheme.danger),
+                ),
+
+              if (aiPlan != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.tealLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(
+                            Icons.psychology_outlined,
+                            color: AppTheme.teal,
+                            size: 16,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'AI Clinical Plan',
+                            style: TextStyle(
+                              color: AppTheme.teal,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (aiPlan['SuggestedSpecialist'] != null ||
+                          aiPlan['suggestedSpecialist'] != null)
+                        _miniRow(
+                          'Specialist',
+                          aiPlan['SuggestedSpecialist'] ??
+                              aiPlan['suggestedSpecialist'],
+                        ),
+                      if (aiPlan['UrgencyLevel'] != null ||
+                          aiPlan['urgencyLevel'] != null)
+                        _miniRow(
+                          'Urgency',
+                          aiPlan['UrgencyLevel'] ?? aiPlan['urgencyLevel'],
+                        ),
+                      if (aiPlan['RecommendedAction'] != null ||
+                          aiPlan['recommendedAction'] != null)
+                        _miniRow(
+                          'Action',
+                          aiPlan['RecommendedAction'] ??
+                              aiPlan['recommendedAction'],
+                        ),
+                      if (aiPlan['Rationale'] != null ||
+                          aiPlan['rationale'] != null)
+                        _miniRow(
+                          'Rationale',
+                          aiPlan['Rationale'] ?? aiPlan['rationale'],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 14),
+              _buildTimeline(record.triageStatus),
             ],
           ),
-          children: [
-            const Divider(color: AppTheme.borderGray),
-            const SizedBox(height: 8),
-
-            _detailRow('Symptoms', record.symptoms, Icons.description_outlined),
-            const SizedBox(height: 10),
-
-            if (record.doctorNotes != null &&
-                record.doctorNotes!.isNotEmpty)
-              _detailRow('Doctor Notes', record.doctorNotes!,
-                  Icons.local_hospital_outlined),
-
-            if (aiPlan != null) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.tealLight,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.psychology_outlined,
-                            color: AppTheme.teal, size: 16),
-                        SizedBox(width: 6),
-                        Text('AI Clinical Plan',
-                            style: TextStyle(
-                                color: AppTheme.teal,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (aiPlan['SuggestedSpecialist'] != null ||
-                        aiPlan['suggestedSpecialist'] != null)
-                      _miniRow('Specialist',
-                          aiPlan['SuggestedSpecialist'] ?? aiPlan['suggestedSpecialist']),
-                    if (aiPlan['UrgencyLevel'] != null ||
-                        aiPlan['urgencyLevel'] != null)
-                      _miniRow('Urgency',
-                          aiPlan['UrgencyLevel'] ?? aiPlan['urgencyLevel']),
-                    if (aiPlan['RecommendedAction'] != null ||
-                        aiPlan['recommendedAction'] != null)
-                      _miniRow('Action',
-                          aiPlan['RecommendedAction'] ?? aiPlan['recommendedAction']),
-                    if (aiPlan['Rationale'] != null ||
-                        aiPlan['rationale'] != null)
-                      _miniRow('Rationale',
-                          aiPlan['Rationale'] ?? aiPlan['rationale']),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 14),
-            _buildTimeline(record.triageStatus),
-          ],
         ),
       ),
     );
@@ -431,6 +548,18 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
 
   // ── Status Timeline ────────────────────────────────────────────────────────
   Widget _buildTimeline(String status) {
+    if (status == 'AssessmentFailed') {
+      return const Text(
+        'Submission saved · Assessment unavailable',
+        style: TextStyle(color: AppTheme.danger),
+      );
+    }
+    if (status == 'RevisionRequested') {
+      return const Text(
+        'Submission saved · Revision requested',
+        style: TextStyle(color: AppTheme.warning),
+      );
+    }
     final steps = ['Pending', 'In Review', 'Complete'];
     final current = status.toLowerCase();
     int activeIndex = 0;
@@ -439,8 +568,8 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
 
     return Row(
       children: List.generate(steps.length, (i) {
-        final done   = i <= activeIndex;
-        final color  = done ? AppTheme.teal : AppTheme.borderGray;
+        final done = i <= activeIndex;
+        final color = done ? AppTheme.teal : AppTheme.borderGray;
         final isLast = i == steps.length - 1;
         return Expanded(
           child: Row(
@@ -448,7 +577,8 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
               Column(
                 children: [
                   Container(
-                    width: 26, height: 26,
+                    width: 26,
+                    height: 26,
                     decoration: BoxDecoration(
                       color: done ? AppTheme.teal : AppTheme.inputBg,
                       shape: BoxShape.circle,
@@ -459,11 +589,14 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
                         : null,
                   ),
                   const SizedBox(height: 4),
-                  Text(steps[i],
-                      style: TextStyle(
-                          color: done ? AppTheme.teal : AppTheme.textLight,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    steps[i],
+                    style: TextStyle(
+                      color: done ? AppTheme.teal : AppTheme.textLight,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
               if (!isLast)
@@ -485,58 +618,64 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   Widget _smallChip(String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color.withValues(alpha: 0.4)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+    ),
+  );
 
   Widget _detailRow(String label, String value, IconData icon) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTheme.textLight, size: 14),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.textLight,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600)),
-            ],
+          Icon(icon, color: AppTheme.textLight, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textLight,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 3),
-          Text(value,
-              style: const TextStyle(
-                  color: AppTheme.textMid, fontSize: 13)),
         ],
-      );
+      ),
+      const SizedBox(height: 3),
+      Text(
+        value,
+        style: const TextStyle(color: AppTheme.textMid, fontSize: 13),
+      ),
+    ],
+  );
 
   Widget _miniRow(String label, dynamic value) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 76,
-              child: Text('$label:',
-                  style: const TextStyle(
-                      color: Color(0xFF285E61), fontSize: 11))),
-            Expanded(
-              child: Text(value?.toString() ?? '—',
-                  style: const TextStyle(
-                      color: AppTheme.textDark, fontSize: 12)),
-            ),
-          ],
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 76,
+          child: Text(
+            '$label:',
+            style: const TextStyle(color: Color(0xFF285E61), fontSize: 11),
+          ),
         ),
-      );
+        Expanded(
+          child: Text(
+            value?.toString() ?? '—',
+            style: const TextStyle(color: AppTheme.textDark, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
 
   String _formatDate(DateTime dt) {
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}  '
