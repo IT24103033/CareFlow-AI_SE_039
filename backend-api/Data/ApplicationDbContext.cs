@@ -15,6 +15,7 @@ namespace CareFlowAI.API.Data
         // ── Component B: Triage & AI (Sujana) ───────────────────────────────
         public DbSet<TriageRecord> TriageRecords { get; set; }
         public DbSet<AgentWorkflowState> AgentWorkflows { get; set; }
+        public DbSet<TriageReviewHistory> TriageReviewHistories { get; set; }
 
         // ── Component C: Appointments & Resource Scheduling (Sandathi) ───────
         public DbSet<Doctor> Doctors { get; set; }
@@ -81,6 +82,25 @@ namespace CareFlowAI.API.Data
                       .HasDefaultValueSql("now()");
 
                 entity.Property(a => a.UpdatedAt)
+                      .HasDefaultValueSql("now()");
+            });
+
+            // ── TriageReviewHistory ───────────────────────────────────────────
+            modelBuilder.Entity<TriageReviewHistory>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+
+                entity.HasOne(a => a.TriageRecord)
+                      .WithMany(t => t.ReviewHistories)
+                      .HasForeignKey(a => a.TriageRecordId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(a => a.AgentWorkflowState)
+                      .WithMany()
+                      .HasForeignKey(a => a.AgentWorkflowStateId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                entity.Property(a => a.CreatedAt)
                       .HasDefaultValueSql("now()");
             });
 

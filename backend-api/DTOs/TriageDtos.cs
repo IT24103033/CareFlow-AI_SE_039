@@ -16,6 +16,18 @@ namespace CareFlowAI.API.DTOs
     }
 
     /// <summary>
+    /// Payload the Flutter app sends when a patient submits a revision.
+    /// </summary>
+    public class PatientRevisionDto
+    {
+        [Required, StringLength(4000, MinimumLength = 20)]
+        public string UpdatedSymptoms { get; set; } = string.Empty;
+        
+        [Required]
+        public DateTime? ExpectedUpdatedAt { get; set; }
+    }
+
+    /// <summary>
     /// Payload the React dashboard sends when a doctor approves or rejects a triage plan.
     /// </summary>
     public class ReviewTriageDto
@@ -53,6 +65,16 @@ namespace CareFlowAI.API.DTOs
         /// <summary>Which analysis path was used: RuleEngine | GeminiAI | FallbackRules</summary>
         public PlanningExecutionSummary? PlanningExecution { get; set; }
         public string? AnalysisMethod   { get; set; }
+        public List<TriageReviewHistoryDto> ReviewHistories { get; set; } = new();
+    }
+
+    public class TriageReviewHistoryDto
+    {
+        public Guid Id { get; set; }
+        public string Action { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public string SymptomsAtReview { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
     }
 }
 

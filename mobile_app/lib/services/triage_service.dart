@@ -83,4 +83,30 @@ class TriageService {
     throw HttpException(
         'Fetch by ID failed (${response.statusCode}): ${response.body}');
   }
+
+  // ── Revise a triage request ────────────────────────────────────────────────
+  // POST /api/triage/{id}/revise
+  static Future<Map<String, dynamic>> reviseTriage({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  }) async {
+    final headers = await _authHeaders();
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/triage/$triageId/revise'),
+          headers: headers,
+          body: jsonEncode({
+            'updatedSymptoms': updatedSymptoms,
+            'expectedUpdatedAt': expectedUpdatedAt.toIso8601String(),
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw HttpException(
+        'Revise triage failed (${response.statusCode}): ${response.body}');
+  }
 }

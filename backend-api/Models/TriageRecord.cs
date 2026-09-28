@@ -46,5 +46,8 @@ namespace CareFlowAI.API.Models
         // ── Navigation Property ───────────────────────────────────────────────
         /// <summary>All AI agent runs triggered by this triage submission.</summary>
         public ICollection<AgentWorkflowState> AgentWorkflows { get; set; } = new List<AgentWorkflowState>();
+
+        /// <summary>Immutable history of doctor reviews, decisions, and notes.</summary>
+        public ICollection<TriageReviewHistory> ReviewHistories { get; set; } = new List<TriageReviewHistory>();
     }
 }

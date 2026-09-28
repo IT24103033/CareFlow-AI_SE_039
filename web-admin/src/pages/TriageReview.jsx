@@ -135,7 +135,22 @@ function CaseDetail({ id, api, onDecision }) {
         <ul>{record.planningExecution.events.map((event, index) => <li key={index}>{event.operation}: {event.outcome} ({event.durationMs} ms)</li>)}</ul>
       </details>}
       <dl><dt>Agent status</dt><dd>{label(record.aiAgentStatus)}</dd><dt>Approval status</dt><dd>{label(record.approvalStatus)}</dd><dt>Last updated</dt><dd>{date(record.updatedAt)}</dd></dl>
-      {record.doctorNotes && <><h3>Recorded review notes</h3><p className="triage-text">{record.doctorNotes}</p></>}
+      {record.reviewHistories?.length > 0 && <div className="triage-history">
+        <h3>Review history</h3>
+        <div className="triage-history-list">
+          {record.reviewHistories.map(h => (
+            <div key={h.id} className="triage-history-item" style={{ borderLeft: '3px solid #cbd5e1', paddingLeft: '12px', marginBottom: '16px' }}>
+              <div className="triage-history-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <strong>{label(h.action)}</strong>
+                <span className="triage-muted">{date(h.createdAt)}</span>
+              </div>
+              {h.notes && <p style={{ margin: '4px 0', fontSize: '0.95rem' }}><strong>Notes:</strong> {h.notes}</p>}
+              <p className="triage-muted" style={{ margin: '4px 0', fontSize: '0.85rem' }}>Symptoms at review: {h.symptomsAtReview.length > 80 ? h.symptomsAtReview.substring(0, 80) + '...' : h.symptomsAtReview}</p>
+            </div>
+          ))}
+        </div>
+      </div>}
+      {record.doctorNotes && record.reviewHistories?.length === 0 && <><h3>Recorded review notes</h3><p className="triage-text">{record.doctorNotes}</p></>}
       {ready ? <form className="triage-review-form" onSubmit={submit}>
         <h3>Record a decision</h3><label>Decision<select value={decision} disabled={saving || conflict} onChange={event => setDecision(event.target.value)}>
           <option value="Approved">Approve assessment</option><option value="Rejected">Reject assessment</option><option value="RevisionRequested">Request revision</option>

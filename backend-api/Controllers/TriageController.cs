@@ -194,7 +194,7 @@ namespace CareFlowAI.API.Controllers
             var access = CheckStaffAccess();
             if (access != null) return access;
             var record = await _context.TriageRecords.AsNoTracking().Include(t => t.Patient)
-                .Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
+                .Include(t => t.AgentWorkflows).Include(t => t.ReviewHistories).FirstOrDefaultAsync(t => t.Id == id);
             return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record)));
         }
 
@@ -227,12 +227,79 @@ namespace CareFlowAI.API.Controllers
             record.UpdatedAt = DateTime.UtcNow;
             agent!.ApprovalStatus = dto.Decision;
             agent.UpdatedAt = record.UpdatedAt;
+
+            var history = new TriageReviewHistory
+            {
+                TriageRecordId = record.Id,
+                AssignedDoctorId = doctorId,
+                Action = dto.Decision,
+                Notes = dto.DoctorNotes?.Trim(),
+                SymptomsAtReview = record.Symptoms,
+                AgentWorkflowStateId = agent?.Id
+            };
+            _context.TriageReviewHistories.Add(history);
+
             try { await _context.SaveChangesAsync(); }
             catch (DbUpdateConcurrencyException)
             {
                 return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
             return Ok(MapToDto(record, agent));
+        }
+
+        [Authorize(Roles = "Patient")]
+        [HttpPost("{id:guid}/revise")]
+        public async Task<IActionResult> Revise(Guid id, [FromBody] PatientRevisionDto dto, CancellationToken cancellationToken = default)
+        {
+            var patientClaim = User?.FindFirst("patient_id")?.Value;
+            if (!Guid.TryParse(patientClaim, out var authPatientId))
+                return StatusCode(403, "Authenticated patient identity is missing or invalid.");
+
+            var record = await _context.TriageRecords
+                .Include(t => t.AgentWorkflows)
+                .FirstOrDefaultAsync(t => t.Id == id);
+            
+            if (record == null) return NotFound();
+            
+            if (record.PatientId != authPatientId)
+                return StatusCode(403, "You can only revise your own triage records.");
+
+            if (record.TriageStatus != "RevisionRequested")
+                return BadRequest("This record is not currently requesting a revision.");
+
+            if (record.UpdatedAt != dto.ExpectedUpdatedAt)
+                return Conflict("This case has changed. Please refresh.");
+
+            record.Symptoms = dto.UpdatedSymptoms.Trim();
+            record.TriageStatus = "ReassessmentInProgress";
+            record.UpdatedAt = DateTime.UtcNow;
+
+            // Trigger reassessment - persist state first
+            var agentState = PlanningAgentService.CreateRunningState(record, null);
+            _context.AgentWorkflows.Add(agentState);
+            
+            try { await _context.SaveChangesAsync(CancellationToken.None); }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict("Another update occurred. Please refresh.");
+            }
+
+            await _planningAgent.RunAsync(record, agentState, cancellationToken);
+            
+            var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
+            record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
+            record.SeverityLevel = plan?.UrgencyLevel ?? record.SeverityLevel;
+            record.UpdatedAt = DateTime.UtcNow;
+
+            if (plan != null)
+            {
+                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
+                _context.AgentWorkflows.Add(safetyWorkflowState);
+            }
+
+            await _context.SaveChangesAsync(CancellationToken.None);
+
+            return Ok(MapToDto(record, agentState));
         }
 
         private IActionResult? CheckStaffAccess()
@@ -264,7 +331,15 @@ namespace CareFlowAI.API.Controllers
                 AiAgentStatus    = agent?.AgentStatus,
                 ApprovalStatus   = agent?.ApprovalStatus,
                 AnalysisMethod   = TriageReviewRules.ReadPlan(agent?.OutputPayload)?.AnalysisMethod,
-                PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload)
+                PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload),
+                ReviewHistories  = record.ReviewHistories?.OrderByDescending(h => h.CreatedAt).Select(h => new TriageReviewHistoryDto
+                {
+                    Id = h.Id,
+                    Action = h.Action,
+                    Notes = h.Notes,
+                    SymptomsAtReview = h.SymptomsAtReview,
+                    CreatedAt = h.CreatedAt
+                }).ToList() ?? new List<TriageReviewHistoryDto>()
             };
     }
 }

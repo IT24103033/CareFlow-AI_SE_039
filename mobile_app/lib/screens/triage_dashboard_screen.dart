@@ -539,6 +539,21 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
 
               const SizedBox(height: 14),
               _buildTimeline(record.triageStatus),
+              if (record.triageStatus == 'RevisionRequested') ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showRevisionDialog(record),
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Revise Submission'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.navyDark,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -613,6 +628,106 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
           ),
         );
       }),
+    );
+  }
+
+  void _showRevisionDialog(TriageRecord record) {
+    final TextEditingController symptomsController =
+        TextEditingController(text: record.symptoms);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Revise Submission'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (record.doctorNotes != null && record.doctorNotes!.isNotEmpty) ...[
+                      const Text(
+                        'Doctor Notes:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: AppTheme.danger),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        record.doctorNotes!,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const Text('Update your symptoms:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: symptomsController,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Describe your symptoms...',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (!isSubmitting)
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel', style: TextStyle(color: AppTheme.textMid)),
+                  ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (symptomsController.text.trim().length < 20) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please provide at least 20 characters.'),
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            await widget.repository.revise(
+                              triageId: record.id,
+                              updatedSymptoms: symptomsController.text.trim(),
+                              expectedUpdatedAt: record.updatedAt,
+                            );
+                            if (mounted) {
+                              Navigator.pop(context);
+                              _load(); // Reload dashboard
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Submit', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
