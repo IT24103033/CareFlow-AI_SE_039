@@ -2,6 +2,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace CareFlowAI.API.Services
 {
@@ -106,83 +107,101 @@ namespace CareFlowAI.API.Services
                     "Start time must be earlier than end time.");
             }
 
-            // Check that the doctor exists and is active
-            var doctor = await _context.Doctors
-                .FirstOrDefaultAsync(d =>
-                    d.Id == dto.DoctorId &&
-                    d.IsActive);
+            // Use a Serializable transaction so concurrent booking
+            // requests cannot both pass the conflict check.
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync(
+                    System.Data.IsolationLevel.Serializable);
 
-            if (doctor == null)
+            try
             {
-                throw new KeyNotFoundException(
-                    "Active doctor not found.");
+                // Check that the doctor exists and is active
+                var doctor = await _context.Doctors
+                    .FirstOrDefaultAsync(d =>
+                        d.Id == dto.DoctorId &&
+                        d.IsActive);
+
+                if (doctor == null)
+                {
+                    throw new KeyNotFoundException(
+                        "Active doctor not found.");
+                }
+
+                // Check that the patient exists
+                var patientExists = await _context.PatientProfiles
+                    .AnyAsync(p => p.Id == dto.PatientId);
+
+                if (!patientExists)
+                {
+                    throw new KeyNotFoundException(
+                        "Patient not found.");
+                }
+
+                // Check whether requested time is inside doctor availability
+                var hasAvailability = await _context.DoctorAvailabilities
+                    .AnyAsync(a =>
+                        a.DoctorId == dto.DoctorId &&
+                        a.Date == dto.AppointmentDate &&
+                        dto.StartTime >= a.StartTime &&
+                        dto.EndTime <= a.EndTime);
+
+                if (!hasAvailability)
+                {
+                    throw new InvalidOperationException(
+                        "The selected time is outside the doctor's availability.");
+                }
+
+                // Check for an existing conflicting appointment
+                var hasConflict = await CheckConflictAsync(
+                    dto.DoctorId,
+                    dto.AppointmentDate,
+                    dto.StartTime,
+                    dto.EndTime);
+
+                if (hasConflict)
+                {
+                    throw new InvalidOperationException(
+                        "The selected appointment time is already booked.");
+                }
+
+                // Create tentative appointment
+                var appointment = new Appointment
+                {
+                    DoctorId = dto.DoctorId,
+                    PatientId = dto.PatientId,
+                    AppointmentDate = dto.AppointmentDate,
+                    StartTime = dto.StartTime,
+                    EndTime = dto.EndTime,
+                    Status = "Tentative",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Appointments.Add(appointment);
+
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                return new AppointmentDto
+                {
+                    Id = appointment.Id,
+                    DoctorId = appointment.DoctorId,
+                    DoctorName = doctor.FullName,
+                    PatientId = appointment.PatientId,
+                    AppointmentDate = appointment.AppointmentDate,
+                    StartTime = appointment.StartTime,
+                    EndTime = appointment.EndTime,
+                    Status = appointment.Status,
+                    CreatedAt = appointment.CreatedAt
+                };
             }
-
-            // Check that the patient exists
-            var patientExists = await _context.PatientProfiles
-                .AnyAsync(p => p.Id == dto.PatientId);
-
-            if (!patientExists)
+            catch (PostgresException ex) when (ex.SqlState == "40001")
             {
-                throw new KeyNotFoundException(
-                    "Patient not found.");
-            }
-
-            // Check whether requested time is inside doctor availability
-            var hasAvailability = await _context.DoctorAvailabilities
-                .AnyAsync(a =>
-                    a.DoctorId == dto.DoctorId &&
-                    a.Date == dto.AppointmentDate &&
-                    dto.StartTime >= a.StartTime &&
-                    dto.EndTime <= a.EndTime);
-
-            if (!hasAvailability)
-            {
-                throw new InvalidOperationException(
-                    "The selected time is outside the doctor's availability.");
-            }
-
-            // Check for an existing conflicting appointment
-            var hasConflict = await CheckConflictAsync(
-                dto.DoctorId,
-                dto.AppointmentDate,
-                dto.StartTime,
-                dto.EndTime);
-
-            if (hasConflict)
-            {
+                // PostgreSQL serialization failure.
+                // Another concurrent transaction won the booking race.
                 throw new InvalidOperationException(
                     "The selected appointment time is already booked.");
             }
-
-            // Create tentative appointment
-            var appointment = new Appointment
-            {
-                DoctorId = dto.DoctorId,
-                PatientId = dto.PatientId,
-                AppointmentDate = dto.AppointmentDate,
-                StartTime = dto.StartTime,
-                EndTime = dto.EndTime,
-                Status = "Tentative",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Appointments.Add(appointment);
-
-            await _context.SaveChangesAsync();
-
-            return new AppointmentDto
-            {
-                Id = appointment.Id,
-                DoctorId = appointment.DoctorId,
-                DoctorName = doctor.FullName,
-                PatientId = appointment.PatientId,
-                AppointmentDate = appointment.AppointmentDate,
-                StartTime = appointment.StartTime,
-                EndTime = appointment.EndTime,
-                Status = appointment.Status,
-                CreatedAt = appointment.CreatedAt
-            };
         }
 
         // Confirm a tentative appointment
