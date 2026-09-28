@@ -91,7 +91,7 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                     if (plan != null) trace.Events.Add(new("KeywordScreen", "Matched", 0));
                     else
                     {
-                        var assessmentInput = new ClinicalAssessmentInput(input.Symptoms, input.Duration, context.MedicalHistorySummary);
+                        var assessmentInput = new ClinicalAssessmentInput(input.Symptoms, input.Duration, context.MedicalHistorySummary, context.BloodGroup, context.DateOfBirth);
                         for (var attempt = 1; attempt <= maxAttempts && plan == null; attempt++)
                         {
                             budget.Token.ThrowIfCancellationRequested();

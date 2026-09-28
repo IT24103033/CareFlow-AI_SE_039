@@ -1,4 +1,5 @@
 using System.Text;
+using Amazon.S3;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,9 +9,22 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+DotNetEnv.Env.Load("../.env.local");
+builder.Configuration.AddEnvironmentVariables();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+var awsEndpoint = builder.Configuration["AWS_ENDPOINT_URL_S3"];
+if (!string.IsNullOrEmpty(awsEndpoint))
+{
+    var config = new AmazonS3Config { ServiceURL = awsEndpoint, ForcePathStyle = true };
+    builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client(
+        builder.Configuration["AWS_ACCESS_KEY_ID"],
+        builder.Configuration["AWS_SECRET_ACCESS_KEY"],
+        config));
+}
 
 // Swagger with JWT Bearer support
 builder.Services.AddSwaggerGen(c =>
@@ -44,6 +58,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
 builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
 builder.Services.AddScoped<PlanningAgentService>();
+builder.Services.AddHostedService<CareFlowAI.AIOrchestrator.WorkflowManager>();
 
 // JWT & Security Services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();

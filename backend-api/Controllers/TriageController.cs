@@ -69,6 +69,7 @@ namespace CareFlowAI.API.Controllers
             {
                 PatientId    = patientId,
                 Symptoms     = dto.Symptoms.Trim(),
+                ImageUrl     = dto.ImageUrl,
                 TriageStatus = "Pending",
                 SeverityLevel = "Unassessed"
             };
@@ -96,6 +97,28 @@ namespace CareFlowAI.API.Controllers
             await _context.SaveChangesAsync(CancellationToken.None);
 
             return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState));
+        }
+
+        [Authorize(Roles = "Patient,Doctor,Admin")]
+        [HttpPost("upload-image")]
+        public async Task<IActionResult> UploadImage(IFormFile image, [FromServices] Amazon.S3.IAmazonS3 s3Client, [FromServices] IConfiguration config, CancellationToken cancellationToken = default)
+        {
+            if (image == null || image.Length == 0) return BadRequest("No image provided.");
+            var bucketName = "triage-images";
+            var key = $"triage/{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
+
+            using var stream = image.OpenReadStream();
+            var request = new Amazon.S3.Model.PutObjectRequest
+            {
+                BucketName = bucketName,
+                Key = key,
+                InputStream = stream,
+                ContentType = image.ContentType
+            };
+
+            await s3Client.PutObjectAsync(request, cancellationToken);
+            var endpoint = config["AWS_ENDPOINT_URL_S3"]?.TrimEnd('/');
+            return Ok(new { url = $"{endpoint}/{bucketName}/{key}" });
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -302,6 +325,53 @@ namespace CareFlowAI.API.Controllers
             return Ok(MapToDto(record, agentState));
         }
 
+        [Authorize(Roles = "Patient,Doctor,Admin")]
+        [HttpPost("{id:guid}/retry")]
+        public async Task<IActionResult> Retry(Guid id, CancellationToken cancellationToken = default)
+        {
+            var record = await _context.TriageRecords
+                .Include(t => t.AgentWorkflows)
+                .FirstOrDefaultAsync(t => t.Id == id);
+            
+            if (record == null) return NotFound();
+            
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                    return StatusCode(403, "You can only retry your own triage records.");
+            }
+
+            if (record.TriageStatus != "AssessmentFailed")
+                return BadRequest("Only failed assessments can be retried.");
+
+            record.TriageStatus = "ReassessmentInProgress";
+            record.UpdatedAt = DateTime.UtcNow;
+
+            var agentState = PlanningAgentService.CreateRunningState(record, null);
+            _context.AgentWorkflows.Add(agentState);
+            
+            try { await _context.SaveChangesAsync(CancellationToken.None); }
+            catch (DbUpdateConcurrencyException) { return Conflict("Another update occurred. Please refresh."); }
+
+            await _planningAgent.RunAsync(record, agentState, cancellationToken);
+            
+            var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
+            record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
+            record.SeverityLevel = plan?.UrgencyLevel ?? "Unassessed";
+            record.UpdatedAt = DateTime.UtcNow;
+
+            if (plan != null)
+            {
+                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
+                _context.AgentWorkflows.Add(safetyWorkflowState);
+            }
+
+            await _context.SaveChangesAsync(CancellationToken.None);
+
+            return Ok(MapToDto(record, agentState));
+        }
+
         private IActionResult? CheckStaffAccess()
         {
             // Fail closed until Component A installs its authentication middleware.
@@ -321,6 +391,7 @@ namespace CareFlowAI.API.Controllers
                 PatientId        = record.PatientId,
                 PatientName      = record.Patient?.FullName,
                 Symptoms         = record.Symptoms,
+                ImageUrl         = record.ImageUrl,
                 SeverityLevel    = record.SeverityLevel,
                 TriageStatus     = record.TriageStatus,
                 DoctorNotes      = record.DoctorNotes,

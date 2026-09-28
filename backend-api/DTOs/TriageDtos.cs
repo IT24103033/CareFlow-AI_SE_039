@@ -13,6 +13,7 @@ namespace CareFlowAI.API.DTOs
         public string Symptoms { get; set; } = string.Empty;
         [StringLength(200)]
         public string? Duration { get; set; }
+        public string? ImageUrl { get; set; }
     }
 
     /// <summary>
@@ -51,6 +52,7 @@ namespace CareFlowAI.API.DTOs
         public Guid PatientId { get; set; }
         public string? PatientName { get; set; }
         public string Symptoms { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
         public string SeverityLevel { get; set; } = string.Empty;
         public string TriageStatus { get; set; } = string.Empty;
         public string? DoctorNotes { get; set; }

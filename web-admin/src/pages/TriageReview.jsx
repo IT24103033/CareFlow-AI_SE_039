@@ -115,7 +115,14 @@ function CaseDetail({ id, api, onDecision }) {
     {!record ? <p role="status">{error ? 'Case could not be loaded.' : 'Loading case…'}</p> : <>
       <h3>{record.patientName || 'Patient'}</h3><p className="triage-id">Case {record.id}</p>
       <div className="triage-chips"><Badge value={record.severityLevel} /><Badge value={record.triageStatus} /></div>
-      <h3>Symptoms</h3><p className="triage-text">{record.symptoms}</p>
+      <h3>Symptoms</h3>
+      <p className="triage-text">{record.symptoms}</p>
+      {record.imageUrl && (
+        <div style={{ marginTop: '12px', marginBottom: '20px' }}>
+          <h4>Attached Image</h4>
+          <img src={record.imageUrl} alt="Triage attachment" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+        </div>
+      )}
       <h3>AI assessment</h3>
       <p className="triage-muted">Decision support — review the assessment before recording a decision.</p>
       {plan ? <dl><dt>Suggested specialty</dt><dd>{plan.suggestedspecialist}</dd><dt>Recommended action</dt><dd>{plan.recommendedaction}</dd><dt>Assessment summary</dt><dd>{plan.rationale}</dd><dt>Analysis method</dt><dd>{record.analysisMethod || plan.analysismethod || 'Not recorded'}</dd></dl>
