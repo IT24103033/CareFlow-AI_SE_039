@@ -50,9 +50,8 @@ namespace CareFlowAI.API.DTOs
     /// <summary>DTO for doctor approval/rejection of an AI-validated prescription.</summary>
     public class ApprovePrescriptionDto
     {
-        /// <summary>Doctor GUID who is approving the prescription.</summary>
-        [Required]
-        public Guid DoctorId { get; set; }
+        /// <summary>Optional supplied doctor ID; ignored in favor of the authenticated doctor_id claim.</summary>
+        public Guid? DoctorId { get; set; }
 
         /// <summary>"Approved" or "Rejected"</summary>
         [Required]
