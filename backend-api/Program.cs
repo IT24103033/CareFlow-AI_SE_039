@@ -79,8 +79,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Component D: Third-Party SMS & Email Notification Service
-builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHttpClient<INotificationService, NotificationService>();
 builder.Services.AddScoped<PharmacyAiService>();
+builder.Services.AddScoped<ISafetyAgent>(sp => sp.GetRequiredService<PharmacyAiService>());
 
 // Component C: Doctor Availability Service
 builder.Services.AddScoped<DoctorAvailabilityService>();

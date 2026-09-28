@@ -28,7 +28,10 @@ public class TriageReviewTests
         var claims = new List<Claim>();
         if (role != null) claims.Add(new Claim(ClaimTypes.Role, role));
         if (doctorId != null) claims.Add(new Claim("doctor_id", doctorId.ToString()!));
-        return new TriageController(db, new PlanningAgentService(new PatientContextTool(db), new GeminiAssessmentClient(new ConfigurationBuilder().Build()), new ConfigurationBuilder().Build()))
+        return new TriageController(
+            db,
+            new PlanningAgentService(new PatientContextTool(db), new GeminiAssessmentClient(new ConfigurationBuilder().Build()), new ConfigurationBuilder().Build()),
+            new PharmacyAiService())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext
             { User = new ClaimsPrincipal(new ClaimsIdentity(claims, authenticated ? "Test" : null)) } }

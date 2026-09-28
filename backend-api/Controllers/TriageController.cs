@@ -15,17 +15,22 @@ namespace CareFlowAI.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly PlanningAgentService _planningAgent;
+        private readonly ISafetyAgent _safetyAgent;
 
-        public TriageController(ApplicationDbContext context, PlanningAgentService planningAgent)
+        public TriageController(
+            ApplicationDbContext context,
+            PlanningAgentService planningAgent,
+            ISafetyAgent? safetyAgent = null)
         {
             _context       = context;
             _planningAgent = planningAgent;
+            _safetyAgent   = safetyAgent ?? new PharmacyAiService();
         }
 
         // ────────────────────────────────────────────────────────────────────
         // POST api/triage
         // Flutter app calls this when a patient submits symptoms.
-        // Saves the record, then immediately triggers the Planning Agent.
+        // Saves the record, triggers the Planning Agent, and executes SafetyAgent validation.
         // ────────────────────────────────────────────────────────────────────
         [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpPost]
@@ -77,6 +82,14 @@ namespace CareFlowAI.API.Controllers
             var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
             record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
             record.SeverityLevel = plan?.UrgencyLevel ?? "Unassessed";
+
+            // 3. Integrate Component D SafetyAgent: execute B's proposed emergency-safety step
+            if (plan != null)
+            {
+                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
+                _context.AgentWorkflows.Add(safetyWorkflowState);
+            }
+
             record.UpdatedAt = DateTime.UtcNow;
             // Persist cancellation/failure even if the HTTP client disconnected. A process
             // crash still leaves a durable Running row for the future recovery worker.
