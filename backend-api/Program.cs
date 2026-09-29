@@ -1,5 +1,5 @@
 using System.Text;
-using Amazon.S3;
+using CloudinaryDotNet;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,14 +16,12 @@ builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-var awsEndpoint = builder.Configuration["AWS_ENDPOINT_URL_S3"];
-if (!string.IsNullOrEmpty(awsEndpoint))
+var cloudinaryUrl = builder.Configuration["CLOUDINARY_URL"];
+if (!string.IsNullOrEmpty(cloudinaryUrl))
 {
-    var config = new AmazonS3Config { ServiceURL = awsEndpoint, ForcePathStyle = true };
-    builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client(
-        builder.Configuration["AWS_ACCESS_KEY_ID"],
-        builder.Configuration["AWS_SECRET_ACCESS_KEY"],
-        config));
+    var cloudinary = new Cloudinary(cloudinaryUrl);
+    cloudinary.Api.Secure = true;
+    builder.Services.AddSingleton(cloudinary);
 }
 
 // Swagger with JWT Bearer support

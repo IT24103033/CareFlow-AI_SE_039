@@ -54,29 +54,49 @@ namespace CareFlowAI.AIOrchestrator
             var planningAgent = scope.ServiceProvider.GetRequiredService<PlanningAgentService>();
             var safetyAgent = scope.ServiceProvider.GetRequiredService<ISafetyAgent>();
 
-            // Workflows stuck in "Running" for more than 5 minutes are considered abandoned
             var threshold = DateTime.UtcNow.AddMinutes(-5);
 
-            var abandonedWorkflows = await context.AgentWorkflows
-                .Include(w => w.TriageRecord)
+            var abandonedIds = await context.AgentWorkflows
                 .Where(w => w.AgentName == "PlanningAgent" && w.AgentStatus == "Running" && w.StartedAt < threshold)
+                .Select(w => w.Id)
                 .ToListAsync(stoppingToken);
 
-            foreach (var state in abandonedWorkflows)
+            foreach (var id in abandonedIds)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                var record = state.TriageRecord;
+                // Atomically claim the state
+                var claimed = await context.AgentWorkflows
+                    .Where(w => w.Id == id && w.AgentStatus == "Running")
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(w => w.AgentStatus, "Abandoned")
+                        .SetProperty(w => w.ErrorMessage, "Abandoned by orchestrator")
+                        .SetProperty(w => w.UpdatedAt, DateTime.UtcNow), stoppingToken);
+                
+                if (claimed == 0) continue; // Another worker got it
+
+                var oldState = await context.AgentWorkflows.Include(w => w.TriageRecord).SingleAsync(w => w.Id == id);
+                var record = oldState.TriageRecord;
                 if (record == null) continue;
 
-                _logger.LogWarning($"Recovering abandoned PlanningAgent workflow {state.Id} for TriageRecord {record.Id}");
+                _logger.LogWarning($"Recovering abandoned PlanningAgent workflow {id} for TriageRecord {record.Id}");
+
+                // Read old duration from input payload if possible
+                string? duration = null;
+                try {
+                    var inputPayload = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.Nodes.JsonObject>(oldState.InputPayload);
+                    duration = inputPayload?["Duration"]?.ToString();
+                } catch { /* ignore */ }
+
+                var newState = PlanningAgentService.CreateRunningState(record, duration);
+                context.AgentWorkflows.Add(newState);
+                await context.SaveChangesAsync(stoppingToken);
 
                 // Re-run the planning agent
-                await planningAgent.RunAsync(record, state, stoppingToken);
+                await planningAgent.RunAsync(record, newState, stoppingToken);
 
-                var plan = state.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(state.OutputPayload) : null;
+                var plan = newState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(newState.OutputPayload) : null;
                 
-                // Only update the TriageRecord status if it's currently Pending or ReassessmentInProgress
                 if (record.TriageStatus == "Pending" || record.TriageStatus == "ReassessmentInProgress")
                 {
                     record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
@@ -90,10 +110,10 @@ namespace CareFlowAI.AIOrchestrator
                     record.UpdatedAt = DateTime.UtcNow;
                 }
 
-                state.UpdatedAt = DateTime.UtcNow;
+                newState.UpdatedAt = DateTime.UtcNow;
                 await context.SaveChangesAsync(stoppingToken);
                 
-                _logger.LogInformation($"Successfully recovered workflow {state.Id}. New status: {state.AgentStatus}");
+                _logger.LogInformation($"Successfully recovered workflow via new state {newState.Id}. Status: {newState.AgentStatus}");
             }
         }
     }

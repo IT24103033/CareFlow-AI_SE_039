@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import './TriageReview.css';
 import { readPlan } from '../services/triagePlan';
 
-const statuses = ['Pending', 'InReview', 'Approved', 'Rejected', 'RevisionRequested', 'AssessmentFailed'];
+const statuses = ['Pending', 'InReview', 'Approved', 'Rejected', 'RevisionRequested', 'AssessmentFailed', 'ReassessmentInProgress'];
 const label = (value) => ({ InReview: 'Awaiting review', RevisionRequested: 'Revision requested', AssessmentFailed: 'Assessment unavailable' }[value] || value || 'Not available');
 const date = (value) => value ? new Date(value).toLocaleString() : 'Not available';
 function Badge({ value }) {

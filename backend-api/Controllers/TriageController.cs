@@ -16,15 +16,18 @@ namespace CareFlowAI.API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly PlanningAgentService _planningAgent;
         private readonly ISafetyAgent _safetyAgent;
+        private readonly CloudinaryDotNet.Cloudinary? _cloudinary;
 
         public TriageController(
             ApplicationDbContext context,
             PlanningAgentService planningAgent,
+            IServiceProvider serviceProvider,
             ISafetyAgent? safetyAgent = null)
         {
             _context       = context;
             _planningAgent = planningAgent;
             _safetyAgent   = safetyAgent ?? new PharmacyAiService();
+            _cloudinary    = serviceProvider.GetService<CloudinaryDotNet.Cloudinary>();
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -96,29 +99,83 @@ namespace CareFlowAI.API.Controllers
             // crash still leaves a durable Running row for the future recovery worker.
             await _context.SaveChangesAsync(CancellationToken.None);
 
-            return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState));
+            return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState, _cloudinary));
         }
 
         [Authorize(Roles = "Patient,Doctor,Admin")]
         [HttpPost("upload-image")]
-        public async Task<IActionResult> UploadImage(IFormFile image, [FromServices] Amazon.S3.IAmazonS3 s3Client, [FromServices] IConfiguration config, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> UploadImage(IFormFile image, [FromServices] CloudinaryDotNet.Cloudinary cloudinary, CancellationToken cancellationToken = default)
         {
             if (image == null || image.Length == 0) return BadRequest("No image provided.");
-            var bucketName = "triage-images";
-            var key = $"triage/{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
+            
+            if (image.Length > 5 * 1024 * 1024) return BadRequest("Image size exceeds the 5MB limit.");
+
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+            if (!allowedTypes.Contains(image.ContentType)) return BadRequest("Invalid file type. Only JPEG, PNG, and WebP are allowed.");
+
+            if (cloudinary == null) return StatusCode(500, "Cloudinary configuration is missing.");
 
             using var stream = image.OpenReadStream();
-            var request = new Amazon.S3.Model.PutObjectRequest
+            var uploadParams = new CloudinaryDotNet.Actions.ImageUploadParams
             {
-                BucketName = bucketName,
-                Key = key,
-                InputStream = stream,
-                ContentType = image.ContentType
+                File = new CloudinaryDotNet.FileDescription(image.FileName, stream),
+                Folder = "triage-images",
+                Type = "authenticated"
             };
 
-            await s3Client.PutObjectAsync(request, cancellationToken);
-            var endpoint = config["AWS_ENDPOINT_URL_S3"]?.TrimEnd('/');
-            return Ok(new { url = $"{endpoint}/{bucketName}/{key}" });
+            var uploadResult = await cloudinary.UploadAsync(uploadParams, cancellationToken);
+            
+            if (uploadResult.Error != null) return StatusCode(500, $"Image upload failed: {uploadResult.Error.Message}");
+
+            return Ok(new { url = uploadResult.SecureUrl.ToString() });
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // GET api/triage/{id}/image
+        // Returns the signed Cloudinary URL for the triage record's image.
+        // Enforces patient ownership and staff authorization.
+        // ────────────────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
+        [HttpGet("{id:guid}/image")]
+        public async Task<IActionResult> GetImage(Guid id, [FromServices] CloudinaryDotNet.Cloudinary cloudinary)
+        {
+            var record = await _context.TriageRecords.FindAsync(id);
+            if (record == null || string.IsNullOrEmpty(record.ImageUrl))
+                return NotFound();
+
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                    return StatusCode(403, "You do not have permission to view this image.");
+            }
+
+            // Extract publicId from Cloudinary URL (hacky but works if the URL is standard)
+            // Example: https://res.cloudinary.com/demo/image/authenticated/v1612803856/triage-images/abc.jpg
+            // Better: If ImageUrl is stored as public ID. But we stored SecureUrl.
+            // Let's generate a signed delivery URL.
+            string secureUrl = record.ImageUrl;
+            
+            // Generate a signed URL valid for 1 hour.
+            var uri = new Uri(secureUrl);
+            var pathParts = uri.AbsolutePath.TrimStart('/').Split('/');
+            
+            // Cloudinary paths are usually /<cloud_name>/image/<type>/v<version>/<folder>/<file>
+            // We just need to sign the path. CloudinaryDotNet provides a way to generate signed URLs by Public ID.
+            // If the frontend needs to view the image, we can just return it from here using HttpClient, but signed URL is better.
+            
+            // To avoid parsing, we'll just redirect the client to the Cloudinary signed URL if we parse the public ID out.
+            // Assuming Folder = "triage-images", the publicId is "triage-images/" + filename without extension.
+            var filenameWithExt = pathParts.Last();
+            var publicId = "triage-images/" + System.IO.Path.GetFileNameWithoutExtension(filenameWithExt);
+
+            var transform = new CloudinaryDotNet.Transformation();
+            var signedUrl = cloudinary.Api.UrlImgUp.Transform(transform)
+                .Action("authenticated")
+                .Signed(true)
+                .BuildUrl(publicId);
+
+            return Redirect(signedUrl);
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -145,7 +202,7 @@ namespace CareFlowAI.API.Controllers
             }
 
             var agent = LatestAgent(record);
-            return Ok(MapToDto(record, agent));
+            return Ok(MapToDto(record, agent, _cloudinary));
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -175,7 +232,7 @@ namespace CareFlowAI.API.Controllers
             var response = records.Select(r =>
             {
                 var agent = LatestAgent(r);
-                return MapToDto(r, agent);
+                return MapToDto(r, agent, _cloudinary);
             });
 
             return Ok(response);
@@ -207,7 +264,7 @@ namespace CareFlowAI.API.Controllers
             var records = await sorted.ThenBy(t => t.Id)
                 .Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
                 .Include(t => t.Patient).Include(t => t.AgentWorkflows).ToListAsync();
-            return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r))), total, filter.Page, filter.PageSize });
+            return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r), _cloudinary)), total, filter.Page, filter.PageSize });
         }
 
         [Authorize(Roles = "Doctor")]
@@ -218,7 +275,7 @@ namespace CareFlowAI.API.Controllers
             if (access != null) return access;
             var record = await _context.TriageRecords.AsNoTracking().Include(t => t.Patient)
                 .Include(t => t.AgentWorkflows).Include(t => t.ReviewHistories).FirstOrDefaultAsync(t => t.Id == id);
-            return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record)));
+            return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record), _cloudinary));
         }
 
         [Authorize(Roles = "Doctor")]
@@ -267,7 +324,7 @@ namespace CareFlowAI.API.Controllers
             {
                 return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
-            return Ok(MapToDto(record, agent));
+            return Ok(MapToDto(record, agent, _cloudinary));
         }
 
         [Authorize(Roles = "Patient")]
@@ -311,7 +368,7 @@ namespace CareFlowAI.API.Controllers
             
             var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
             record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
-            record.SeverityLevel = plan?.UrgencyLevel ?? record.SeverityLevel;
+            record.SeverityLevel = plan?.UrgencyLevel ?? "Unassessed";
             record.UpdatedAt = DateTime.UtcNow;
 
             if (plan != null)
@@ -322,7 +379,7 @@ namespace CareFlowAI.API.Controllers
 
             await _context.SaveChangesAsync(CancellationToken.None);
 
-            return Ok(MapToDto(record, agentState));
+            return Ok(MapToDto(record, agentState, _cloudinary));
         }
 
         [Authorize(Roles = "Patient,Doctor,Admin")]
@@ -369,7 +426,7 @@ namespace CareFlowAI.API.Controllers
 
             await _context.SaveChangesAsync(CancellationToken.None);
 
-            return Ok(MapToDto(record, agentState));
+            return Ok(MapToDto(record, agentState, _cloudinary));
         }
 
         private IActionResult? CheckStaffAccess()
@@ -384,14 +441,33 @@ namespace CareFlowAI.API.Controllers
             .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).FirstOrDefault();
 
         // ── Helper ───────────────────────────────────────────────────────────
-        private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent) =>
-            new()
+        private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent, CloudinaryDotNet.Cloudinary? cloudinary = null)
+        {
+            string? imageUrl = record.ImageUrl;
+            if (imageUrl != null && cloudinary != null)
+            {
+                try
+                {
+                    var uri = new Uri(imageUrl);
+                    var pathParts = uri.AbsolutePath.TrimStart('/').Split('/');
+                    var filenameWithExt = pathParts.Last();
+                    var publicId = "triage-images/" + System.IO.Path.GetFileNameWithoutExtension(filenameWithExt);
+                    
+                    var transform = new CloudinaryDotNet.Transformation();
+                    imageUrl = cloudinary.Api.UrlImgUp.Transform(transform)
+                        .Action("authenticated")
+                        .Signed(true)
+                        .BuildUrl(publicId);
+                } catch { /* fallback to original */ }
+            }
+
+            return new TriageResponseDto
             {
                 Id               = record.Id,
                 PatientId        = record.PatientId,
                 PatientName      = record.Patient?.FullName,
                 Symptoms         = record.Symptoms,
-                ImageUrl         = record.ImageUrl,
+                ImageUrl         = imageUrl,
                 SeverityLevel    = record.SeverityLevel,
                 TriageStatus     = record.TriageStatus,
                 DoctorNotes      = record.DoctorNotes,
@@ -406,11 +482,15 @@ namespace CareFlowAI.API.Controllers
                 ReviewHistories  = record.ReviewHistories?.OrderByDescending(h => h.CreatedAt).Select(h => new TriageReviewHistoryDto
                 {
                     Id = h.Id,
+                    ReviewerId = h.AssignedDoctorId,
+                    LinkedAttemptId = h.AgentWorkflowStateId,
                     Action = h.Action,
                     Notes = h.Notes,
                     SymptomsAtReview = h.SymptomsAtReview,
+                    PreviousPlan = h.AgentWorkflowState?.OutputPayload,
                     CreatedAt = h.CreatedAt
                 }).ToList() ?? new List<TriageReviewHistoryDto>()
             };
+        }
     }
 }

@@ -73,9 +73,12 @@ namespace CareFlowAI.API.DTOs
     public class TriageReviewHistoryDto
     {
         public Guid Id { get; set; }
+        public Guid? ReviewerId { get; set; }
+        public Guid? LinkedAttemptId { get; set; }
         public string Action { get; set; } = string.Empty;
         public string? Notes { get; set; }
         public string SymptomsAtReview { get; set; } = string.Empty;
+        public string? PreviousPlan { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }
@@ -85,7 +88,7 @@ namespace CareFlowAI.API.DTOs
     public class TriageQueueQuery
     {
         [StringLength(100)] public string? Search { get; set; }
-        [RegularExpression("^(Pending|InReview|Approved|Rejected|RevisionRequested|AssessmentFailed)$")]
+        [RegularExpression("^(Pending|InReview|Approved|Rejected|RevisionRequested|AssessmentFailed|ReassessmentInProgress)$")]
         public string? Status { get; set; }
         [RegularExpression("^(Low|Medium|High|Critical|Unassessed)$")] public string? Severity { get; set; }
         [RegularExpression("^(newest|oldest|urgency)$")] public string Sort { get; set; } = "newest";
