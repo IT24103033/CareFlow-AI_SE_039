@@ -65,6 +65,8 @@ namespace CareFlowAI.AIOrchestrator
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
+                using var transaction = await context.Database.BeginTransactionAsync(stoppingToken);
+
                 // Atomically claim the state
                 var claimed = await context.AgentWorkflows
                     .Where(w => w.Id == id && w.AgentStatus == "Running")
@@ -91,6 +93,7 @@ namespace CareFlowAI.AIOrchestrator
                 var newState = PlanningAgentService.CreateRunningState(record, duration);
                 context.AgentWorkflows.Add(newState);
                 await context.SaveChangesAsync(stoppingToken);
+                await transaction.CommitAsync(stoppingToken);
 
                 // Re-run the planning agent
                 await planningAgent.RunAsync(record, newState, stoppingToken);

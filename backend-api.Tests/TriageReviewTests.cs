@@ -31,7 +31,11 @@ public class TriageReviewTests
         if (doctorId != null) claims.Add(new Claim("doctor_id", doctorId.ToString()!));
         return new TriageController(
             db,
-            new PlanningAgentService(new PatientContextTool(db), new GeminiAssessmentClient(new ConfigurationBuilder().Build()), new ConfigurationBuilder().Build()),
+            new PlanningAgentService(
+                new PatientContextTool(db), 
+                new GeminiAssessmentClient(new ConfigurationBuilder().Build()), 
+                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy"),
+                new ConfigurationBuilder().Build()),
             new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(),
             new PharmacyAiService())
         {

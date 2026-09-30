@@ -16,6 +16,7 @@ namespace CareFlowAI.API.Data
         public DbSet<TriageRecord> TriageRecords { get; set; }
         public DbSet<AgentWorkflowState> AgentWorkflows { get; set; }
         public DbSet<TriageReviewHistory> TriageReviewHistories { get; set; }
+        public DbSet<TriageAttachment> TriageAttachments { get; set; }
 
         // ── Component C: Appointments & Resource Scheduling (Sandathi) ───────
         public DbSet<Doctor> Doctors { get; set; }
@@ -45,6 +46,11 @@ namespace CareFlowAI.API.Data
                       .WithMany()
                       .HasForeignKey(t => t.PatientId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.Attachment)
+                      .WithMany()
+                      .HasForeignKey(t => t.AttachmentId)
+                      .OnDelete(DeleteBehavior.SetNull);
 
                 // Triage status constraint values
                 entity.Property(t => t.TriageStatus)
@@ -100,6 +106,20 @@ namespace CareFlowAI.API.Data
                       .HasForeignKey(a => a.AgentWorkflowStateId)
                       .OnDelete(DeleteBehavior.SetNull);
 
+                entity.Property(a => a.CreatedAt)
+                      .HasDefaultValueSql("now()");
+            });
+
+            // ── TriageAttachment ──────────────────────────────────────────────
+            modelBuilder.Entity<TriageAttachment>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+                
+                entity.HasOne(a => a.TriageRecord)
+                      .WithMany()
+                      .HasForeignKey(a => a.TriageRecordId)
+                      .OnDelete(DeleteBehavior.SetNull);
+                      
                 entity.Property(a => a.CreatedAt)
                       .HasDefaultValueSql("now()");
             });

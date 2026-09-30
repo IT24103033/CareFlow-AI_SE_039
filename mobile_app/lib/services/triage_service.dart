@@ -26,7 +26,7 @@ class TriageService {
     required String symptoms,
     File? imageFile,
   }) async {
-    String? imageUrl;
+    String? attachmentId;
     final token = await AuthService.getAccessToken();
 
     // 1. Upload image if present
@@ -40,7 +40,7 @@ class TriageService {
       if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
         final bodyStr = await uploadResp.stream.bytesToString();
         final bodyJson = jsonDecode(bodyStr);
-        imageUrl = bodyJson['url'];
+        attachmentId = bodyJson['attachmentId'];
       } else {
         throw HttpException('Image upload failed: ${uploadResp.statusCode}');
       }
@@ -51,7 +51,7 @@ class TriageService {
     final body = {
       'patientId': patientId,
       'symptoms': symptoms,
-      if (imageUrl != null) 'imageUrl': imageUrl
+      if (attachmentId != null) 'attachmentId': attachmentId
     };
 
     final response = await http

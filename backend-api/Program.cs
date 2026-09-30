@@ -55,6 +55,16 @@ builder.Services.AddSwaggerGen(c =>
 // Component B: controlled context access, model adapter and planner.
 builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
 builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
+
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp => 
+{
+    var tool = sp.GetRequiredService<IPatientContextTool>();
+    var adapter = new DomainContextWrapper(tool);
+    return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
+        adapter,
+        builder.Configuration["GeminiApiKey"] ?? builder.Configuration["Gemini:ApiKey"] ?? string.Empty
+    );
+});
 builder.Services.AddScoped<PlanningAgentService>();
 builder.Services.AddHostedService<CareFlowAI.AIOrchestrator.WorkflowManager>();
 

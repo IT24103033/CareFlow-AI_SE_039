@@ -151,8 +151,18 @@ function CaseDetail({ id, api, onDecision }) {
                 <strong>{label(h.action)}</strong>
                 <span className="triage-muted">{date(h.createdAt)}</span>
               </div>
+              {h.reviewerId && <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#64748b' }}>Reviewer ID: {h.reviewerId}</p>}
+              {h.linkedAttemptId && <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#64748b' }}>Linked Attempt: {h.linkedAttemptId}</p>}
               {h.notes && <p style={{ margin: '4px 0', fontSize: '0.95rem' }}><strong>Notes:</strong> {h.notes}</p>}
               <p className="triage-muted" style={{ margin: '4px 0', fontSize: '0.85rem' }}>Symptoms at review: {h.symptomsAtReview.length > 80 ? h.symptomsAtReview.substring(0, 80) + '...' : h.symptomsAtReview}</p>
+              {h.previousPlan && (
+                <details style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                  <summary>Previous Plan</summary>
+                  <pre style={{ whiteSpace: 'pre-wrap', background: '#f1f5f9', padding: '8px', borderRadius: '4px', marginTop: '4px' }}>
+                    {h.previousPlan}
+                  </pre>
+                </details>
+              )}
             </div>
           ))}
         </div>

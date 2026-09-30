@@ -13,7 +13,7 @@ namespace CareFlowAI.API.DTOs
         public string Symptoms { get; set; } = string.Empty;
         [StringLength(200)]
         public string? Duration { get; set; }
-        public string? ImageUrl { get; set; }
+        public Guid? AttachmentId { get; set; }
     }
 
     /// <summary>

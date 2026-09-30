@@ -3,9 +3,9 @@ namespace CareFlowAI.API.Services;
 // Only the relevant profile summary is exposed to Component B. Component A can
 // replace the adapter with its Context Agent without changing the planner.
 public record PatientContextSnapshot(Guid PatientId, string MedicalHistorySummary, string BloodGroup, DateOnly DateOfBirth);
-public record ClinicalAssessmentInput(string Symptoms, string? Duration, string MedicalHistorySummary, string BloodGroup, DateOnly DateOfBirth);
+public record ClinicalAssessmentInput(string Symptoms, string? Duration, string MedicalHistorySummary, string BloodGroup, DateOnly DateOfBirth, string DomainRiskLevel, string[] DomainFlaggedFactors);
 public record PlanningInput(Guid WorkflowId, Guid PatientId, string Objective, string Symptoms,
-    string? Duration, PatientContextSnapshot? Context = null);
+    string? Duration, PatientContextSnapshot? Context = null, CareFlowAI.Orchestrator.Agents.AgentOutput? DomainAnalysis = null);
 
 public interface IPatientContextTool
 {

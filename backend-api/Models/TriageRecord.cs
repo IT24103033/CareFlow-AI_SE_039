@@ -19,8 +19,9 @@ namespace CareFlowAI.API.Models
         /// <summary>Raw symptom text submitted by the patient from the Flutter app.</summary>
         public string Symptoms { get; set; } = string.Empty;
 
-        /// <summary>Optional URL to an attached image showing the symptoms.</summary>
-        public string? ImageUrl { get; set; }
+        /// <summary>Optional attachment ID for the symptoms image.</summary>
+        public Guid? AttachmentId { get; set; }
+        public TriageAttachment? Attachment { get; set; }
 
         /// <summary>
         /// AI-assessed urgency: "Low" | "Medium" | "High" | "Critical"
