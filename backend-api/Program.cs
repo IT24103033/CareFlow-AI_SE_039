@@ -1,4 +1,5 @@
 using System.Text;
+using CloudinaryDotNet;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,9 +9,20 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+DotNetEnv.Env.Load("../.env.local");
+builder.Configuration.AddEnvironmentVariables();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+var cloudinaryUrl = builder.Configuration["CLOUDINARY_URL"];
+if (!string.IsNullOrEmpty(cloudinaryUrl))
+{
+    var cloudinary = new Cloudinary(cloudinaryUrl);
+    cloudinary.Api.Secure = true;
+    builder.Services.AddSingleton(cloudinary);
+}
 
 // Swagger with JWT Bearer support
 builder.Services.AddSwaggerGen(c =>
@@ -43,7 +55,18 @@ builder.Services.AddSwaggerGen(c =>
 // Component B: controlled context access, model adapter and planner.
 builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
 builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
+
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp => 
+{
+    var tool = sp.GetRequiredService<IPatientContextTool>();
+    var adapter = new DomainContextWrapper(tool);
+    return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
+        adapter,
+        builder.Configuration["GeminiApiKey"] ?? builder.Configuration["Gemini:ApiKey"] ?? string.Empty
+    );
+});
 builder.Services.AddScoped<PlanningAgentService>();
+builder.Services.AddHostedService<CareFlowAI.AIOrchestrator.WorkflowManager>();
 
 // JWT & Security Services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();

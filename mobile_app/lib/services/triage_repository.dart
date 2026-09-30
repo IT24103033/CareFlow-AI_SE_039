@@ -17,6 +17,11 @@ abstract class TriageRepository {
     required String symptoms,
     File? imageFile,
   });
+  Future<Map<String, dynamic>> revise({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  });
   Future<TriageHistory> loadHistory();
 }
 
@@ -34,6 +39,21 @@ class ApiTriageRepository extends TriageRepository {
       patientId: patientId,
       symptoms: symptoms,
       imageFile: imageFile,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> revise({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  }) async {
+    final patientId = await AuthService.getPatientId();
+    if (patientId == null) throw StateError('Not signed in.');
+    return TriageService.reviseTriage(
+      triageId: triageId,
+      updatedSymptoms: updatedSymptoms,
+      expectedUpdatedAt: expectedUpdatedAt,
     );
   }
 

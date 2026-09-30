@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CareFlowAI.API.Tests;
 
@@ -30,7 +31,12 @@ public class TriageReviewTests
         if (doctorId != null) claims.Add(new Claim("doctor_id", doctorId.ToString()!));
         return new TriageController(
             db,
-            new PlanningAgentService(new PatientContextTool(db), new GeminiAssessmentClient(new ConfigurationBuilder().Build()), new ConfigurationBuilder().Build()),
+            new PlanningAgentService(
+                new PatientContextTool(db), 
+                new GeminiAssessmentClient(new ConfigurationBuilder().Build()), 
+                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy"),
+                new ConfigurationBuilder().Build()),
+            new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(),
             new PharmacyAiService())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext
@@ -174,5 +180,32 @@ public class TriageReviewTests
         using var db = Context();
         Assert.IsType<BadRequestObjectResult>(await Controller(db).Submit(new() { PatientId = Guid.NewGuid(), Symptoms = symptoms }));
         Assert.Empty(db.TriageRecords);
+    }
+
+    [Fact]
+    public async Task Revision_by_different_patient_is_rejected()
+    {
+        using var db = Context(); var (record, _) = await Seed(db);
+        var controller = Controller(db, role: "Patient");
+        var claims = new List<Claim> { new Claim(ClaimTypes.Role, "Patient"), new Claim("patient_id", Guid.NewGuid().ToString()) };
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test")) } };
+        
+        var dto = new PatientRevisionDto { UpdatedSymptoms = "New symptoms for revision.", ExpectedUpdatedAt = record.UpdatedAt };
+        Assert.Equal(403, Assert.IsType<ObjectResult>(await controller.Revise(record.Id, dto)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Stale_revision_is_rejected()
+    {
+        using var db = Context(); var (record, _) = await Seed(db);
+        record.TriageStatus = "RevisionRequested";
+        await db.SaveChangesAsync();
+        
+        var controller = Controller(db, role: "Patient");
+        var claims = new List<Claim> { new Claim(ClaimTypes.Role, "Patient"), new Claim("patient_id", record.PatientId.ToString()) };
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test")) } };
+        
+        var dto = new PatientRevisionDto { UpdatedSymptoms = "New symptoms for revision.", ExpectedUpdatedAt = record.UpdatedAt.AddSeconds(-1) };
+        Assert.IsType<ConflictObjectResult>(await controller.Revise(record.Id, dto));
     }
 }

@@ -29,6 +29,17 @@ class FakeRepository extends TriageRepository {
 
   @override
   Future<TriageHistory> loadHistory() => onHistory!();
+
+  @override
+  Future<Map<String, dynamic>> revise({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  }) {
+    submissions++;
+    submittedSymptoms = updatedSymptoms;
+    return onSubmit!();
+  }
 }
 
 Map<String, dynamic> result(String status) => {

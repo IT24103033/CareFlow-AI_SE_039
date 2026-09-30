@@ -16,15 +16,18 @@ namespace CareFlowAI.API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly PlanningAgentService _planningAgent;
         private readonly ISafetyAgent _safetyAgent;
+        private readonly CloudinaryDotNet.Cloudinary? _cloudinary;
 
         public TriageController(
             ApplicationDbContext context,
             PlanningAgentService planningAgent,
+            IServiceProvider serviceProvider,
             ISafetyAgent? safetyAgent = null)
         {
             _context       = context;
             _planningAgent = planningAgent;
             _safetyAgent   = safetyAgent ?? new PharmacyAiService();
+            _cloudinary    = serviceProvider.GetService<CloudinaryDotNet.Cloudinary>();
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -69,9 +72,24 @@ namespace CareFlowAI.API.Controllers
             {
                 PatientId    = patientId,
                 Symptoms     = dto.Symptoms.Trim(),
+                AttachmentId = dto.AttachmentId,
                 TriageStatus = "Pending",
                 SeverityLevel = "Unassessed"
             };
+
+            if (dto.AttachmentId.HasValue)
+            {
+                var attachment = await _context.TriageAttachments.FindAsync(dto.AttachmentId.Value);
+                if (attachment != null && attachment.UploaderId == patientId && attachment.TriageRecordId == null)
+                {
+                    attachment.TriageRecordId = record.Id;
+                    record.Attachment = attachment;
+                }
+                else
+                {
+                    return BadRequest("Invalid attachment ID or unauthorized.");
+                }
+            }
             // Persist the record AND running workflow before any context/model call.
             var agentState = PlanningAgentService.CreateRunningState(record, dto.Duration);
             _context.TriageRecords.Add(record);
@@ -95,7 +113,88 @@ namespace CareFlowAI.API.Controllers
             // crash still leaves a durable Running row for the future recovery worker.
             await _context.SaveChangesAsync(CancellationToken.None);
 
-            return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState));
+            return CreatedAtAction(nameof(GetById), new { id = record.Id }, MapToDto(record, agentState, _cloudinary));
+        }
+
+        [Authorize(Roles = "Patient,Doctor,Admin")]
+        [HttpPost("upload-image")]
+        public async Task<IActionResult> UploadImage(IFormFile image, [FromServices] CloudinaryDotNet.Cloudinary cloudinary, CancellationToken cancellationToken = default)
+        {
+            if (image == null || image.Length == 0) return BadRequest("No image provided.");
+            
+            if (image.Length > 5 * 1024 * 1024) return BadRequest("Image size exceeds the 5MB limit.");
+
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+            if (!allowedTypes.Contains(image.ContentType)) return BadRequest("Invalid file type. Only JPEG, PNG, and WebP are allowed.");
+
+            if (cloudinary == null) return StatusCode(500, "Cloudinary configuration is missing.");
+
+            using var stream = image.OpenReadStream();
+            var uploadParams = new CloudinaryDotNet.Actions.ImageUploadParams
+            {
+                File = new CloudinaryDotNet.FileDescription(image.FileName, stream),
+                Folder = "triage-images",
+                Type = "authenticated"
+            };
+
+            var uploadResult = await cloudinary.UploadAsync(uploadParams, cancellationToken);
+            
+            if (uploadResult.Error != null) return StatusCode(500, $"Image upload failed: {uploadResult.Error.Message}");
+
+            Guid uploaderId = Guid.Empty;
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                Guid.TryParse(patientClaim, out uploaderId);
+            }
+            else
+            {
+                var doctorClaim = User?.FindFirst("doctor_id")?.Value;
+                Guid.TryParse(doctorClaim, out uploaderId);
+            }
+
+            if (uploaderId == Guid.Empty) return Unauthorized("Invalid identity.");
+
+            var attachment = new TriageAttachment
+            {
+                CloudinaryPublicId = uploadResult.PublicId,
+                UploaderId = uploaderId
+            };
+            _context.TriageAttachments.Add(attachment);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return Ok(new { attachmentId = attachment.Id });
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // GET api/triage/{id}/image
+        // Returns the signed Cloudinary URL for the triage record's image.
+        // Enforces patient ownership and staff authorization.
+        // ────────────────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
+        [HttpGet("{id:guid}/image")]
+        public async Task<IActionResult> GetImage(Guid id, [FromServices] CloudinaryDotNet.Cloudinary cloudinary)
+        {
+            var record = await _context.TriageRecords.Include(t => t.Attachment).FirstOrDefaultAsync(t => t.Id == id);
+            if (record == null || record.Attachment == null)
+                return NotFound();
+
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                    return StatusCode(403, "You do not have permission to view this image.");
+            }
+
+            var publicId = record.Attachment.CloudinaryPublicId;
+
+            var transform = new CloudinaryDotNet.Transformation();
+            var signedUrl = cloudinary.Api.UrlImgUp.Transform(transform)
+                .Action("authenticated")
+                .Signed(true)
+                .BuildUrl(publicId);
+
+            return Redirect(signedUrl);
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -108,7 +207,7 @@ namespace CareFlowAI.API.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var record = await _context.TriageRecords
-                .Include(t => t.AgentWorkflows)
+                .Include(t => t.AgentWorkflows).Include(t => t.Attachment)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (record == null)
@@ -122,7 +221,7 @@ namespace CareFlowAI.API.Controllers
             }
 
             var agent = LatestAgent(record);
-            return Ok(MapToDto(record, agent));
+            return Ok(MapToDto(record, agent, _cloudinary));
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -134,7 +233,7 @@ namespace CareFlowAI.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var query = _context.TriageRecords.AsNoTracking().Include(t => t.AgentWorkflows).AsQueryable();
+            var query = _context.TriageRecords.AsNoTracking().Include(t => t.AgentWorkflows).Include(t => t.Attachment).AsQueryable();
 
             if (User?.IsInRole("Patient") == true)
             {
@@ -152,7 +251,7 @@ namespace CareFlowAI.API.Controllers
             var response = records.Select(r =>
             {
                 var agent = LatestAgent(r);
-                return MapToDto(r, agent);
+                return MapToDto(r, agent, _cloudinary);
             });
 
             return Ok(response);
@@ -183,8 +282,8 @@ namespace CareFlowAI.API.Controllers
             };
             var records = await sorted.ThenBy(t => t.Id)
                 .Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
-                .Include(t => t.Patient).Include(t => t.AgentWorkflows).ToListAsync();
-            return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r))), total, filter.Page, filter.PageSize });
+                .Include(t => t.Patient).Include(t => t.AgentWorkflows).Include(t => t.Attachment).ToListAsync();
+            return Ok(new { items = records.Select(r => MapToDto(r, LatestAgent(r), _cloudinary)), total, filter.Page, filter.PageSize });
         }
 
         [Authorize(Roles = "Doctor")]
@@ -194,8 +293,8 @@ namespace CareFlowAI.API.Controllers
             var access = CheckStaffAccess();
             if (access != null) return access;
             var record = await _context.TriageRecords.AsNoTracking().Include(t => t.Patient)
-                .Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
-            return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record)));
+                .Include(t => t.AgentWorkflows).Include(t => t.Attachment).Include(t => t.ReviewHistories).FirstOrDefaultAsync(t => t.Id == id);
+            return record == null ? NotFound() : Ok(MapToDto(record, LatestAgent(record), _cloudinary));
         }
 
         [Authorize(Roles = "Doctor")]
@@ -215,7 +314,7 @@ namespace CareFlowAI.API.Controllers
                 return BadRequest("Provide a reason for rejection or revision.");
 
             var record = await _context.TriageRecords.Include(t => t.Patient)
-                .Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
+                .Include(t => t.AgentWorkflows).Include(t => t.Attachment).FirstOrDefaultAsync(t => t.Id == id);
             if (record == null) return NotFound();
             var agent = LatestAgent(record);
             var conflict = TriageReviewRules.Check(record, agent, dto.ExpectedUpdatedAt);
@@ -227,12 +326,126 @@ namespace CareFlowAI.API.Controllers
             record.UpdatedAt = DateTime.UtcNow;
             agent!.ApprovalStatus = dto.Decision;
             agent.UpdatedAt = record.UpdatedAt;
+
+            var history = new TriageReviewHistory
+            {
+                TriageRecordId = record.Id,
+                AssignedDoctorId = doctorId,
+                Action = dto.Decision,
+                Notes = dto.DoctorNotes?.Trim(),
+                SymptomsAtReview = record.Symptoms,
+                AgentWorkflowStateId = agent?.Id
+            };
+            _context.TriageReviewHistories.Add(history);
+
             try { await _context.SaveChangesAsync(); }
             catch (DbUpdateConcurrencyException)
             {
                 return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
-            return Ok(MapToDto(record, agent));
+            return Ok(MapToDto(record, agent, _cloudinary));
+        }
+
+        [Authorize(Roles = "Patient")]
+        [HttpPost("{id:guid}/revise")]
+        public async Task<IActionResult> Revise(Guid id, [FromBody] PatientRevisionDto dto, CancellationToken cancellationToken = default)
+        {
+            var patientClaim = User?.FindFirst("patient_id")?.Value;
+            if (!Guid.TryParse(patientClaim, out var authPatientId))
+                return StatusCode(403, "Authenticated patient identity is missing or invalid.");
+
+            var record = await _context.TriageRecords
+                .Include(t => t.AgentWorkflows).Include(t => t.Attachment)
+                .FirstOrDefaultAsync(t => t.Id == id);
+            
+            if (record == null) return NotFound();
+            
+            if (record.PatientId != authPatientId)
+                return StatusCode(403, "You can only revise your own triage records.");
+
+            if (record.TriageStatus != "RevisionRequested")
+                return BadRequest("This record is not currently requesting a revision.");
+
+            if (record.UpdatedAt != dto.ExpectedUpdatedAt)
+                return Conflict("This case has changed. Please refresh.");
+
+            record.Symptoms = dto.UpdatedSymptoms.Trim();
+            record.TriageStatus = "ReassessmentInProgress";
+            record.UpdatedAt = DateTime.UtcNow;
+
+            // Trigger reassessment - persist state first
+            var agentState = PlanningAgentService.CreateRunningState(record, null);
+            _context.AgentWorkflows.Add(agentState);
+            
+            try { await _context.SaveChangesAsync(CancellationToken.None); }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict("Another update occurred. Please refresh.");
+            }
+
+            await _planningAgent.RunAsync(record, agentState, cancellationToken);
+            
+            var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
+            record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
+            record.SeverityLevel = plan?.UrgencyLevel ?? record.SeverityLevel;
+            record.UpdatedAt = DateTime.UtcNow;
+
+            if (plan != null)
+            {
+                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
+                _context.AgentWorkflows.Add(safetyWorkflowState);
+            }
+
+            await _context.SaveChangesAsync(CancellationToken.None);
+
+            return Ok(MapToDto(record, agentState, _cloudinary));
+        }
+
+        [Authorize(Roles = "Patient,Doctor,Admin")]
+        [HttpPost("{id:guid}/retry")]
+        public async Task<IActionResult> Retry(Guid id, CancellationToken cancellationToken = default)
+        {
+            var record = await _context.TriageRecords
+                .Include(t => t.AgentWorkflows).Include(t => t.Attachment)
+                .FirstOrDefaultAsync(t => t.Id == id);
+            
+            if (record == null) return NotFound();
+            
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                    return StatusCode(403, "You can only retry your own triage records.");
+            }
+
+            if (record.TriageStatus != "AssessmentFailed")
+                return BadRequest("Only failed assessments can be retried.");
+
+            record.TriageStatus = "ReassessmentInProgress";
+            record.UpdatedAt = DateTime.UtcNow;
+
+            var agentState = PlanningAgentService.CreateRunningState(record, null);
+            _context.AgentWorkflows.Add(agentState);
+            
+            try { await _context.SaveChangesAsync(CancellationToken.None); }
+            catch (DbUpdateConcurrencyException) { return Conflict("Another update occurred. Please refresh."); }
+
+            await _planningAgent.RunAsync(record, agentState, cancellationToken);
+            
+            var plan = agentState.AgentStatus == "Completed" ? TriageReviewRules.ReadPlan(agentState.OutputPayload) : null;
+            record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
+            record.SeverityLevel = plan?.UrgencyLevel ?? record.SeverityLevel;
+            record.UpdatedAt = DateTime.UtcNow;
+
+            if (plan != null)
+            {
+                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
+                _context.AgentWorkflows.Add(safetyWorkflowState);
+            }
+
+            await _context.SaveChangesAsync(CancellationToken.None);
+
+            return Ok(MapToDto(record, agentState, _cloudinary));
         }
 
         private IActionResult? CheckStaffAccess()
@@ -247,13 +460,29 @@ namespace CareFlowAI.API.Controllers
             .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).FirstOrDefault();
 
         // ── Helper ───────────────────────────────────────────────────────────
-        private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent) =>
-            new()
+        private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent, CloudinaryDotNet.Cloudinary? cloudinary = null)
+        {
+            string? imageUrl = null;
+            if (record.Attachment != null && cloudinary != null)
+            {
+                try
+                {
+                    var publicId = record.Attachment.CloudinaryPublicId;
+                    var transform = new CloudinaryDotNet.Transformation();
+                    imageUrl = cloudinary.Api.UrlImgUp.Transform(transform)
+                        .Action("authenticated")
+                        .Signed(true)
+                        .BuildUrl(publicId);
+                } catch { /* fallback */ }
+            }
+
+            return new TriageResponseDto
             {
                 Id               = record.Id,
                 PatientId        = record.PatientId,
                 PatientName      = record.Patient?.FullName,
                 Symptoms         = record.Symptoms,
+                ImageUrl         = imageUrl,
                 SeverityLevel    = record.SeverityLevel,
                 TriageStatus     = record.TriageStatus,
                 DoctorNotes      = record.DoctorNotes,
@@ -264,7 +493,19 @@ namespace CareFlowAI.API.Controllers
                 AiAgentStatus    = agent?.AgentStatus,
                 ApprovalStatus   = agent?.ApprovalStatus,
                 AnalysisMethod   = TriageReviewRules.ReadPlan(agent?.OutputPayload)?.AnalysisMethod,
-                PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload)
+                PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload),
+                ReviewHistories  = record.ReviewHistories?.OrderByDescending(h => h.CreatedAt).Select(h => new TriageReviewHistoryDto
+                {
+                    Id = h.Id,
+                    ReviewerId = h.AssignedDoctorId,
+                    LinkedAttemptId = h.AgentWorkflowStateId,
+                    Action = h.Action,
+                    Notes = h.Notes,
+                    SymptomsAtReview = h.SymptomsAtReview,
+                    PreviousPlan = h.AgentWorkflowState?.OutputPayload,
+                    CreatedAt = h.CreatedAt
+                }).ToList() ?? new List<TriageReviewHistoryDto>()
             };
+        }
     }
 }

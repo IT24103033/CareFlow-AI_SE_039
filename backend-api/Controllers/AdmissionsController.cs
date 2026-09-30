@@ -13,11 +13,19 @@ namespace CareFlowAI.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly CareFlowAI.API.Services.IPatientContextTool _contextTool;
+        private readonly CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent _domainAnalysisAgent;
 
-        public AdmissionsController(ApplicationDbContext context,IConfiguration configuration)
+        public AdmissionsController(
+            ApplicationDbContext context, 
+            IConfiguration configuration, 
+            CareFlowAI.API.Services.IPatientContextTool contextTool,
+            CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent domainAnalysisAgent)
         {
             _context = context;
             _configuration = configuration;
+            _contextTool = contextTool;
+            _domainAnalysisAgent = domainAnalysisAgent;
         }
 
         // POST: api/admissions/allocate-ward
@@ -59,19 +67,39 @@ namespace CareFlowAI.API.Controllers
             }
         }
 
-        // POST: api/admissions/analyze-risk
         [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPost("analyze-risk")]
-        public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request)
+        public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request, CancellationToken cancellationToken)
         {
-            // Read the secure key from appsettings
-            string apiKey = _configuration["GeminiApiKey"];
-            
-            // Pass the key into the agent
-            var agent = new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(apiKey);
-            
-            var analysisResult = await agent.AnalyzeRiskAsync(request);
-            return Ok(analysisResult);
+            if (request.PatientId == Guid.Empty)
+                return BadRequest("PatientId is required.");
+
+            var patientExists = await _context.PatientProfiles.AnyAsync(p => p.Id == request.PatientId, cancellationToken);
+            if (!patientExists)
+                return NotFound("Patient not found.");
+
+            try 
+            {
+                var analysisResult = await _domainAnalysisAgent.AnalyzeRiskAsync(request, cancellationToken);
+                return Ok(analysisResult);
+            }
+            catch (CareFlowAI.Orchestrator.Agents.DomainAnalysisException ex)
+            {
+                if (ex.ErrorCode == "DOMAIN_PROVIDER_UNAVAILABLE" || ex.ErrorCode == "DOMAIN_NOT_CONFIGURED")
+                    return StatusCode(503, new { error = "AI provider is temporarily unavailable or misconfigured." });
+                if (ex.ErrorCode == "DOMAIN_INVALID_OUTPUT")
+                    return StatusCode(422, new { error = "AI provider returned invalid or unparseable clinical output." });
+                
+                return StatusCode(500, new { error = "An internal AI analysis error occurred." });
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(408, new { error = "Analysis timed out or was cancelled." });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { error = "An unexpected error occurred during analysis." });
+            }
         }
     }
 }

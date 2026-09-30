@@ -9,6 +9,7 @@ namespace CareFlowAI.API.Services;
 /// scheduling, safety-agent execution, or appointment confirmation.
 /// </summary>
 public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAssessmentClient assessmentClient,
+    CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent domainAnalysisAgent,
     IConfiguration configuration, ILogger<PlanningAgentService>? logger = null)
 {
         private static readonly List<(string[] Keywords, string Specialist, string Urgency, string Action)> _criticalRules = new()
@@ -86,12 +87,45 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                 else
                 {
                     trace.Events.Add(new("GetPatientProfile", "Completed", timer.ElapsedMilliseconds));
-                    state.InputPayload = JsonSerializer.Serialize(input with { Context = context });
-                    plan = MatchExistingKeywordRules(input.Symptoms);
-                    if (plan != null) trace.Events.Add(new("KeywordScreen", "Matched", 0));
+                    
+                    var analysisTimer = Stopwatch.StartNew();
+                    CareFlowAI.Orchestrator.Agents.AgentOutput? domainAnalysis = null;
+                    try 
+                    {
+                        domainAnalysis = await domainAnalysisAgent.AnalyzeRiskAsync(
+                            new CareFlowAI.Orchestrator.Agents.AgentInput { PatientId = input.PatientId, CurrentSymptoms = input.Symptoms }, budget.Token);
+                        analysisTimer.Stop();
+                        
+                        if (string.IsNullOrWhiteSpace(domainAnalysis?.RiskLevel))
+                        {
+                            trace.Events.Add(new("DomainAnalysis", "Failed_InvalidOutput", analysisTimer.ElapsedMilliseconds));
+                            domainAnalysis = new CareFlowAI.Orchestrator.Agents.AgentOutput { RiskLevel = "Unknown", FlaggedFactors = Array.Empty<string>() };
+                        }
+                        else
+                        {
+                            trace.Events.Add(new("DomainAnalysis", "Completed", analysisTimer.ElapsedMilliseconds));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        analysisTimer.Stop();
+                        trace.Events.Add(new("DomainAnalysis", "Failed_Exception", analysisTimer.ElapsedMilliseconds));
+                        logger?.LogWarning("DomainAnalysisAgent failed with exception type {ExceptionType}", ex.GetType().Name);
+                        domainAnalysis = null;
+                    }
+
+                    if (domainAnalysis == null || string.IsNullOrWhiteSpace(domainAnalysis.RiskLevel) || domainAnalysis.RiskLevel == "Unknown")
+                    {
+                        failure = "PROVIDER_UNAVAILABLE";
+                    }
                     else
                     {
-                        var assessmentInput = new ClinicalAssessmentInput(input.Symptoms, input.Duration, context.MedicalHistorySummary);
+                        state.InputPayload = JsonSerializer.Serialize(input with { Context = context, DomainAnalysis = domainAnalysis });
+                        plan = MatchExistingKeywordRules(input.Symptoms);
+                        if (plan != null) trace.Events.Add(new("KeywordScreen", "Matched", 0));
+                        else
+                        {
+                        var assessmentInput = new ClinicalAssessmentInput(input.Symptoms, input.Duration, context.MedicalHistorySummary, context.BloodGroup, context.DateOfBirth, domainAnalysis.RiskLevel, domainAnalysis.FlaggedFactors);
                         for (var attempt = 1; attempt <= maxAttempts && plan == null; attempt++)
                         {
                             budget.Token.ThrowIfCancellationRequested();
@@ -127,6 +161,7 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                                 failure = "PROVIDER_UNAVAILABLE";
                                 trace.Events.Add(new("AssessSymptoms", "Unavailable", timer.ElapsedMilliseconds));
                             }
+                        }
                         }
                     }
                     if (plan != null)
