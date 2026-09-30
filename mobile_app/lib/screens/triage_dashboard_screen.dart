@@ -701,13 +701,13 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
                               updatedSymptoms: symptomsController.text.trim(),
                               expectedUpdatedAt: record.updatedAt,
                             );
-                            if (mounted) {
+                            if (context.mounted) {
                               Navigator.pop(context);
                               _load(); // Reload dashboard
                             }
                           } catch (e) {
                             setDialogState(() => isSubmitting = false);
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('Error: $e')),
                               );
