@@ -37,13 +37,13 @@ class TriageService {
       req.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
       final uploadResp = await req.send().timeout(const Duration(seconds: 30));
-      if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
         final bodyStr = await uploadResp.stream.bytesToString();
-        final bodyJson = jsonDecode(bodyStr);
-        attachmentId = bodyJson['attachmentId'];
-      } else {
-        throw HttpException('Image upload failed: ${uploadResp.statusCode}');
-      }
+        if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
+          final bodyJson = jsonDecode(bodyStr);
+          attachmentId = bodyJson['attachmentId'];
+        } else {
+          throw HttpException('Image upload failed: ${uploadResp.statusCode} - $bodyStr');
+        }
     }
 
     // 2. Submit triage data

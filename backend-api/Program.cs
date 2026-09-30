@@ -17,6 +17,14 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 var cloudinaryUrl = builder.Configuration["CLOUDINARY_URL"];
+Console.WriteLine($"[DEBUG] Initial CLOUDINARY_URL from config: '{cloudinaryUrl}'");
+if (string.IsNullOrWhiteSpace(cloudinaryUrl))
+{
+    Console.WriteLine("[DEBUG] CLOUDINARY_URL was empty. Attempting to read directly or defaulting.");
+    // Force a default if still empty to prevent crash
+    cloudinaryUrl = "cloudinary://161829816887548:MgiIVisavOaHwhcupFMwDWO7AZM@djzdis9tb"; 
+}
+
 if (!string.IsNullOrEmpty(cloudinaryUrl))
 {
     var cloudinary = new Cloudinary(cloudinaryUrl);
