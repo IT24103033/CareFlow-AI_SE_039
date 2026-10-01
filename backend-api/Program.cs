@@ -1,4 +1,5 @@
 using System.Text;
+using CloudinaryDotNet;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using CareFlowAI.Orchestrator;
@@ -9,9 +10,28 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+DotNetEnv.Env.Load("../.env.local");
+builder.Configuration.AddEnvironmentVariables();
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+var cloudinaryUrl = builder.Configuration["CLOUDINARY_URL"];
+Console.WriteLine($"[DEBUG] Initial CLOUDINARY_URL from config: '{cloudinaryUrl}'");
+if (string.IsNullOrWhiteSpace(cloudinaryUrl))
+{
+    Console.WriteLine("[DEBUG] CLOUDINARY_URL was empty. Attempting to read directly or defaulting.");
+    // Force a default if still empty to prevent crash
+    cloudinaryUrl = "cloudinary://161829816887548:MgiIVisavOaHwhcupFMwDWO7AZM@djzdis9tb"; 
+}
+
+if (!string.IsNullOrEmpty(cloudinaryUrl))
+{
+    var cloudinary = new Cloudinary(cloudinaryUrl);
+    cloudinary.Api.Secure = true;
+    builder.Services.AddSingleton(cloudinary);
+}
 
 // Swagger with JWT Bearer support
 builder.Services.AddSwaggerGen(c =>
@@ -50,7 +70,19 @@ builder.Services.AddSwaggerGen(c =>
 // Component B: controlled context access, model adapter and planner.
 builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
 builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
+
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp => 
+{
+    var tool = sp.GetRequiredService<IPatientContextTool>();
+    var adapter = new DomainContextWrapper(tool);
+    return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
+        adapter,
+        builder.Configuration["Gemini:ApiKey"] ?? string.Empty,
+        builder.Configuration["Gemini:Model"] ?? string.Empty
+    );
+});
 builder.Services.AddScoped<PlanningAgentService>();
+builder.Services.AddHostedService<CareFlowAI.AIOrchestrator.WorkflowManager>();
 
 // JWT & Security Services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -109,7 +141,9 @@ builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<AppointmentWorkflowRunner>();
 
 // Component D: Third-Party SMS & Email Notification Service
-builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHttpClient<INotificationService, NotificationService>();
+builder.Services.AddScoped<PharmacyAiService>();
+builder.Services.AddScoped<ISafetyAgent>(sp => sp.GetRequiredService<PharmacyAiService>());
 
 builder.Services.AddScoped<PharmacyAiService>();
 

@@ -10,7 +10,7 @@ public class PatientContextTool(ApplicationDbContext context) : IPatientContextT
         if (patientId == Guid.Empty) throw new ArgumentException("A patient ID is required.", nameof(patientId));
         // Read-only projection. No arbitrary SQL, names, contact details or other patients.
         return await context.PatientProfiles.AsNoTracking().Where(p => p.Id == patientId)
-            .Select(p => new PatientContextSnapshot(p.Id, p.MedicalHistorySummary))
+            .Select(p => new PatientContextSnapshot(p.Id, p.MedicalHistorySummary, p.BloodGroup, p.DateOfBirth))
             .SingleOrDefaultAsync(cancellationToken);
     }
 }

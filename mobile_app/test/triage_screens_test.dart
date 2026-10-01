@@ -29,6 +29,17 @@ class FakeRepository extends TriageRepository {
 
   @override
   Future<TriageHistory> loadHistory() => onHistory!();
+
+  @override
+  Future<Map<String, dynamic>> revise({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  }) {
+    submissions++;
+    submittedSymptoms = updatedSymptoms;
+    return onSubmit!();
+  }
 }
 
 Map<String, dynamic> result(String status) => {
@@ -142,6 +153,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.submissions, 2);
     expect(find.text('Submission Received!'), findsOneWidget);
+  });
+
+  testWidgets('timeout warns about uncertain submission and avoids automatic retry', (tester) async {
+    final repo = FakeRepository()
+      ..onSubmit = () async => throw TimeoutException('Delayed response');
+    await mount(tester, SubmitTriageScreen(repository: repo));
+    await submit(tester);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Check your triage history before submitting again'), findsOneWidget);
+    expect(find.text('Submission Received!'), findsNothing);
+    expect(repo.submissions, 1);
   });
 
   for (final fails in [false, true]) {

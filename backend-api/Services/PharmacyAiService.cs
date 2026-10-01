@@ -21,23 +21,64 @@ namespace CareFlowAI.API.Services
     ///
     /// Returns: SafetyResult with Verdict ("Safe" | "Warning" | "Blocked") + details JSON.
     /// </summary>
-    public class PharmacyAiService
+    public interface ISafetyAgent
+    {
+        AgentWorkflowState CheckEmergencyRules(TriageRecord record, ClinicalPlan? plan);
+    }
+
+    public class PharmacyAiService : ISafetyAgent
     {
         // ── Hardcoded Drug Interaction Rule Set ──────────────────────────────
-        // Key: sorted pair "DrugA|DrugB" (lowercase, case-insensitive)
+        // All keys are normalized: sorted pair "drugA|drugB" (lowercase, case-insensitive)
         // Value: human-readable interaction warning
-        private static readonly Dictionary<string, string> InteractionRules = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly Dictionary<string, string> RawInteractionRules = new(StringComparer.OrdinalIgnoreCase)
         {
             ["amoxicillin|warfarin"]           = "Amoxicillin can enhance the anticoagulant effect of Warfarin. Monitor INR closely.",
             ["ibuprofen|warfarin"]             = "NSAIDs like Ibuprofen increase bleeding risk when combined with Warfarin.",
             ["aspirin|warfarin"]               = "Aspirin + Warfarin significantly increases hemorrhage risk.",
-            ["metformin|contrast"]             = "Metformin should be withheld before contrast imaging to avoid lactic acidosis.",
+            ["contrast|metformin"]             = "Metformin should be withheld before contrast imaging to avoid lactic acidosis.",
             ["ssri|tramadol"]                  = "SSRI + Tramadol can trigger serotonin syndrome. Consider alternative analgesic.",
-            ["ciprofloxacin|antacid"]          = "Antacids reduce Ciprofloxacin absorption. Separate doses by 2 hours.",
-            ["digoxin|amiodarone"]             = "Amiodarone increases Digoxin plasma levels – toxicity risk. Reduce Digoxin dose.",
+            ["antacid|ciprofloxacin"]          = "Antacids reduce Ciprofloxacin absorption. Separate doses by 2 hours.",
+            ["amiodarone|digoxin"]             = "Amiodarone increases Digoxin plasma levels – toxicity risk. Reduce Digoxin dose.",
             ["lisinopril|potassium"]           = "ACE inhibitors + Potassium supplements can cause dangerous hyperkalaemia.",
-            ["simvastatin|amiodarone"]         = "Amiodarone can increase Simvastatin levels – risk of myopathy.",
-            ["phenytoin|fluconazole"]          = "Fluconazole significantly raises Phenytoin levels – monitor for toxicity.",
+            ["amiodarone|simvastatin"]         = "Amiodarone can increase Simvastatin levels – risk of myopathy.",
+            ["fluconazole|phenytoin"]          = "Fluconazole significantly raises Phenytoin levels – monitor for toxicity.",
+        };
+
+        private static readonly Dictionary<string, string> InteractionRules = InitializeRules();
+
+        private static Dictionary<string, string> InitializeRules()
+        {
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, value) in RawInteractionRules)
+            {
+                var parts = key.Split('|');
+                var normalizedKey = parts.Length == 2 ? BuildInteractionKey(parts[0], parts[1]) : key.ToLowerInvariant();
+                dict[normalizedKey] = value;
+            }
+            return dict;
+        }
+
+        // ── Emergency Acuity Rule Set (Component B's Emergency-Safety Step) ──
+        private static readonly List<(string[] Keywords, string Category, string Action)> _emergencyRules = new()
+        {
+            (new[] { "chest pain", "chest tightness", "heart attack", "cardiac arrest", "myocardial infarction" },
+             "Cardiovascular Emergency", "Send to Emergency Department immediately."),
+
+            (new[] { "cannot breathe", "shortness of breath", "choking", "respiratory arrest", "severe difficulty breathing" },
+             "Respiratory Emergency", "Send to Emergency Department immediately."),
+
+            (new[] { "stroke", "face drooping", "facial droop", "sudden numbness", "arm weakness", "slurred speech", "speech difficulty" },
+             "Neurological Emergency", "Send to Emergency Department immediately."),
+
+            (new[] { "seizure", "unconscious", "unresponsive", "not breathing", "coma" },
+             "Loss of Consciousness / Seizure", "Send to Emergency Department immediately."),
+
+            (new[] { "severe bleeding", "massive hemorrhage", "uncontrolled bleeding", "arterial bleed" },
+             "Severe Hemorrhage", "Send to Emergency Department immediately."),
+
+            (new[] { "anaphylaxis", "airway swelling", "throat closing", "severe allergic reaction" },
+             "Anaphylaxis", "Administer epinephrine and send to Emergency Department immediately.")
         };
 
         // ── High-Risk Drug Categories (require Critical/High triage severity) ──
@@ -45,6 +86,80 @@ namespace CareFlowAI.API.Services
         {
             "Anticoagulant", "Chemotherapy", "Immunosuppressant", "Opioid", "Anaesthetic"
         };
+
+        // ────────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Component D – SafetyAgent: Executes B's proposed emergency-safety step (CheckEmergencyRules).
+        /// Cross-references symptoms and preliminary plan against emergency acuity rules.
+        /// Escalates severity to Critical if life-threatening indicators are present.
+        /// </summary>
+        public AgentWorkflowState CheckEmergencyRules(TriageRecord record, ClinicalPlan? plan)
+        {
+            var lowerSymptoms = (record.Symptoms ?? string.Empty).ToLowerInvariant();
+            var matchedEmergencyCategories = new List<string>();
+            var matchedKeywords = new List<string>();
+
+            foreach (var (keywords, category, _) in _emergencyRules)
+            {
+                var hits = keywords.Where(k => lowerSymptoms.Contains(k)).ToList();
+                if (hits.Count > 0)
+                {
+                    matchedEmergencyCategories.Add(category);
+                    matchedKeywords.AddRange(hits);
+                }
+            }
+
+            bool hasEmergencySymptom = matchedKeywords.Count > 0;
+            bool isCriticalUrgency = string.Equals(plan?.UrgencyLevel, "Critical", StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(record.SeverityLevel, "Critical", StringComparison.OrdinalIgnoreCase);
+
+            bool isEmergency = hasEmergencySymptom || isCriticalUrgency;
+            bool escalated = hasEmergencySymptom && !string.Equals(record.SeverityLevel, "Critical", StringComparison.OrdinalIgnoreCase);
+
+            if (escalated)
+            {
+                record.SeverityLevel = "Critical";
+            }
+
+            var safetyState = new AgentWorkflowState
+            {
+                TriageRecordId = record.Id,
+                AgentName      = "SafetyAgent",
+                AgentStatus    = "Completed",
+                ApprovalStatus = "Pending",
+                InputPayload   = JsonSerializer.Serialize(new
+                {
+                    RecordId    = record.Id,
+                    PatientId   = record.PatientId,
+                    Symptoms    = record.Symptoms,
+                    PlanUrgency = plan?.UrgencyLevel ?? record.SeverityLevel,
+                    Specialist  = plan?.SuggestedSpecialist ?? "Unassigned",
+                    Tool        = "CheckEmergencyRules"
+                }),
+                OutputPayload  = JsonSerializer.Serialize(new
+                {
+                    AgentName             = "SafetyAgent",
+                    Tool                  = "CheckEmergencyRules",
+                    ExecutedAt            = DateTime.UtcNow,
+                    IsEmergency           = isEmergency,
+                    Verdict               = isEmergency ? "EmergencyDetected" : "Safe",
+                    EscalatedToCritical   = escalated,
+                    MatchedEmergencyRules = matchedEmergencyCategories.Distinct().ToList(),
+                    MatchedKeywords       = matchedKeywords.Distinct().ToList(),
+                    RecommendedAction     = isEmergency
+                        ? "Send to Emergency Department immediately."
+                        : (plan?.RecommendedAction ?? "Proceed with clinical review."),
+                    Summary               = isEmergency
+                        ? $"EMERGENCY RULE TRIGGERED: Detected {string.Join(", ", matchedKeywords.Distinct())}. Immediate emergency department routing required."
+                        : "Emergency safety validation passed: No life-threatening red-flag emergency symptoms detected."
+                }),
+                StartedAt   = DateTime.UtcNow,
+                CompletedAt = DateTime.UtcNow
+            };
+
+            return safetyState;
+        }
 
         // ────────────────────────────────────────────────────────────────────────
 

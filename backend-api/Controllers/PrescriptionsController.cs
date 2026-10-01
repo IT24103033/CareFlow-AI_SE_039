@@ -166,6 +166,8 @@ namespace CareFlowAI.API.Controllers
             return Ok(prescription);
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, System.Threading.SemaphoreSlim> _dispenseLocks = new();
+
         // ── POST /api/prescriptions ──────────────────────────────────────────
         /// <summary>
         /// Creates a Draft prescription, then immediately runs the AI Validation/Safety Agent.
@@ -177,6 +179,10 @@ namespace CareFlowAI.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
+            // Reject duplicate medicine lines
+            if (dto.Items.Select(i => i.MedicineId).Distinct().Count() != dto.Items.Count)
+                return BadRequest(new { message = "Prescription cannot contain duplicate medicine lines." });
+
             // Verify patient exists
             if (!await _context.PatientProfiles.AnyAsync(p => p.Id == dto.PatientId))
                 return NotFound(new { message = $"Patient {dto.PatientId} not found." });
@@ -185,6 +191,10 @@ namespace CareFlowAI.API.Controllers
             var triage = await _context.TriageRecords.FindAsync(dto.TriageRecordId);
             if (triage is null)
                 return NotFound(new { message = $"Triage record {dto.TriageRecordId} not found." });
+
+            // Ensure a prescription's triage record belongs to its patient
+            if (triage.PatientId != dto.PatientId)
+                return BadRequest(new { message = "The specified triage record does not belong to the selected patient." });
 
             // Verify all medicines exist and load them
             var medicineIds = dto.Items.Select(i => i.MedicineId).Distinct().ToList();
@@ -266,7 +276,7 @@ namespace CareFlowAI.API.Controllers
         // ── PATCH /api/prescriptions/{id}/approve ────────────────────────────
         /// <summary>
         /// Human-in-the-loop: Doctor approves or rejects the AI-validated prescription.
-        /// On Approve → Status = "Issued" and notification is simulated.
+        /// On Approve → Status = "Issued" and real provider notification is dispatched.
         /// On Reject  → Status = "Cancelled".
         /// </summary>
         [Authorize(Roles = "Doctor")]
@@ -274,6 +284,25 @@ namespace CareFlowAI.API.Controllers
         public async Task<IActionResult> Approve(Guid id, [FromBody] ApprovePrescriptionDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            // Derive the approving doctor exclusively from trusted claims and verify an active doctor
+            var doctorClaim = User?.FindFirst("doctor_id")?.Value;
+            if (!Guid.TryParse(doctorClaim, out var doctorId))
+            {
+                return StatusCode(403, new { message = "Authenticated doctor identity is missing or invalid." });
+            }
+
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.Id == doctorId && d.IsActive);
+            if (doctor == null)
+            {
+                return StatusCode(403, new { message = "An active doctor profile is required to approve or reject prescriptions." });
+            }
+
+            // Do not accept a different supplied doctor ID
+            if (dto.DoctorId.HasValue && dto.DoctorId.Value != Guid.Empty && dto.DoctorId.Value != doctorId)
+            {
+                return StatusCode(403, new { message = "You cannot approve or reject a prescription on behalf of another doctor." });
+            }
 
             var prescription = await _context.Prescriptions
                 .Include(p => p.Patient)
@@ -286,35 +315,46 @@ namespace CareFlowAI.API.Controllers
             if (prescription.Status != "Draft")
                 return BadRequest(new { message = $"Prescription is already '{prescription.Status}'. Only Draft prescriptions can be approved/rejected." });
 
-            // If doctorId in DTO is empty, try deriving from authenticated doctor_id claim
-            if (dto.DoctorId == Guid.Empty && Guid.TryParse(User?.FindFirst("doctor_id")?.Value, out var claimDocId))
-            {
-                dto.DoctorId = claimDocId;
-            }
-
             if (dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
             {
-                prescription.Status            = "Issued";
-                prescription.IssuedByDoctorId  = dto.DoctorId;
-                prescription.Notes             = dto.DoctorNotes ?? prescription.Notes;
+                // Enforce safety results: blocked prescriptions cannot be approved
+                if (string.Equals(prescription.AiSafetyStatus, "Blocked", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = "Cannot approve a prescription that has been blocked by safety checks. Critical errors must be resolved." });
+                }
 
-                // ── Trigger third-party SMS & Email notification (Component D requirement) ──
-                prescription.NotificationSent    = true;
-                prescription.NotificationChannel = "Email & SMS";
-                prescription.NotifiedAt          = DateTime.UtcNow;
+                prescription.Status           = "Issued";
+                prescription.IssuedByDoctorId = doctorId;
+                prescription.Notes            = dto.DoctorNotes ?? prescription.Notes;
 
-                var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine.Name} x{i.Quantity} ({i.Dosage})"));
-                await _notificationService.DispatchPrescriptionNotificationAsync(
+                // ── Trigger third-party SMS & Email notification ──
+                var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine?.Name ?? "Medicine"} x{i.Quantity} ({i.Dosage})"));
+                var notificationSuccess = await _notificationService.DispatchPrescriptionNotificationAsync(
                     prescription.Patient?.FullName ?? "Patient",
                     "patient@careflow.hospital.org",
                     medSummary,
                     "Both"
                 );
+
+                // Record delivery success only after actual provider success
+                if (notificationSuccess)
+                {
+                    prescription.NotificationSent    = true;
+                    prescription.NotificationChannel = "Email & SMS";
+                    prescription.NotifiedAt          = DateTime.UtcNow;
+                }
+                else
+                {
+                    prescription.NotificationSent    = false;
+                    prescription.NotificationChannel = null;
+                    prescription.NotifiedAt          = null;
+                }
             }
             else if (dto.Decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
             {
-                prescription.Status = "Cancelled";
-                prescription.Notes  = dto.DoctorNotes ?? prescription.Notes;
+                prescription.Status           = "Cancelled";
+                prescription.IssuedByDoctorId = doctorId;
+                prescription.Notes            = dto.DoctorNotes ?? prescription.Notes;
             }
             else
             {
@@ -331,7 +371,9 @@ namespace CareFlowAI.API.Controllers
                 prescription.NotificationSent,
                 prescription.NotificationChannel,
                 message = dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase)
-                    ? "Prescription issued. Patient notified via Third-Party Email and SMS."
+                    ? (prescription.NotificationSent
+                        ? "Prescription issued. Patient notified via Third-Party Email and SMS."
+                        : "Prescription issued. Notification delivery to patient failed.")
                     : "Prescription rejected and cancelled."
             });
         }
@@ -339,57 +381,89 @@ namespace CareFlowAI.API.Controllers
         // ── PATCH /api/prescriptions/{id}/dispense ───────────────────────────
         /// <summary>
         /// Pharmacist dispenses the prescription: deducts stock for each item.
-        /// Prescription must be in "Issued" status to dispense.
+        /// Protects against concurrent/repeated stock deductions and duplicate medicine lines.
         /// </summary>
         [Authorize(Roles = "Staff,Admin")]
         [HttpPatch("{id:guid}/dispense")]
         public async Task<IActionResult> Dispense(Guid id)
         {
-            var prescription = await _context.Prescriptions
-                .Include(p => p.Items)
-                    .ThenInclude(i => i.Medicine)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
-            if (prescription is null)
-                return NotFound(new { message = "Prescription not found." });
-
-            if (prescription.Status != "Issued")
-                return BadRequest(new { message = $"Only 'Issued' prescriptions can be dispensed. Current status: '{prescription.Status}'." });
-
-            // Check stock before deducting
-            foreach (var item in prescription.Items)
+            var myLock = _dispenseLocks.GetOrAdd(id, _ => new System.Threading.SemaphoreSlim(1, 1));
+            await myLock.WaitAsync();
+            try
             {
-                if (item.Medicine.StockQuantity < item.Quantity)
-                    return BadRequest(new
-                    {
-                        message = $"Insufficient stock for '{item.Medicine.Name}'. Available: {item.Medicine.StockQuantity}, Required: {item.Quantity}."
-                    });
-            }
+                var prescription = await _context.Prescriptions
+                    .Include(p => p.Items)
+                        .ThenInclude(i => i.Medicine)
+                    .FirstOrDefaultAsync(p => p.Id == id);
 
-            // Deduct stock for each line item
-            foreach (var item in prescription.Items)
-            {
-                item.Medicine.StockQuantity -= item.Quantity;
-                item.Medicine.UpdatedAt      = DateTime.UtcNow;
-            }
+                if (prescription is null)
+                    return NotFound(new { message = "Prescription not found." });
 
-            prescription.Status    = "Dispensed";
-            prescription.UpdatedAt = DateTime.UtcNow;
+                if (prescription.Status != "Issued")
+                    return BadRequest(new { message = $"Only 'Issued' prescriptions can be dispensed. Current status: '{prescription.Status}'." });
 
-            await _context.SaveChangesAsync();
+                // Aggregate quantities by MedicineId to protect against duplicate lines
+                var requiredByMedicine = prescription.Items
+                    .GroupBy(i => i.MedicineId)
+                    .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
 
-            return Ok(new
-            {
-                prescription.Id,
-                prescription.Status,
-                message  = "Prescription dispensed. Stock deducted successfully.",
-                Dispensed = prescription.Items.Select(i => new
+                var medicineIds = requiredByMedicine.Keys.ToList();
+                var medicines = await _context.Medicines
+                    .Where(m => medicineIds.Contains(m.Id))
+                    .ToListAsync();
+
+                // Check stock before deducting
+                foreach (var (medId, totalQty) in requiredByMedicine)
                 {
-                    Medicine         = i.Medicine.Name,
-                    QuantityDispensed = i.Quantity,
-                    RemainingStock   = i.Medicine.StockQuantity
-                })
-            });
+                    var medicine = medicines.FirstOrDefault(m => m.Id == medId);
+                    if (medicine == null || medicine.StockQuantity < totalQty)
+                    {
+                        var medName = medicine?.Name ?? medId.ToString();
+                        var available = medicine?.StockQuantity ?? 0;
+                        return BadRequest(new
+                        {
+                            message = $"Insufficient stock for '{medName}'. Available: {available}, Required: {totalQty}."
+                        });
+                    }
+                }
+
+                // Deduct stock for each medicine
+                foreach (var (medId, totalQty) in requiredByMedicine)
+                {
+                    var medicine = medicines.First(m => m.Id == medId);
+                    medicine.StockQuantity -= totalQty;
+                    medicine.UpdatedAt      = DateTime.UtcNow;
+                }
+
+                prescription.Status    = "Dispensed";
+                prescription.UpdatedAt = DateTime.UtcNow;
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return Conflict(new { message = "Concurrent modification detected during dispensing. Stock deduction was not repeated." });
+                }
+
+                return Ok(new
+                {
+                    prescription.Id,
+                    prescription.Status,
+                    message  = "Prescription dispensed. Stock deducted successfully.",
+                    Dispensed = requiredByMedicine.Select(kvp => new
+                    {
+                        Medicine          = medicines.First(m => m.Id == kvp.Key).Name,
+                        QuantityDispensed = kvp.Value,
+                        RemainingStock    = medicines.First(m => m.Id == kvp.Key).StockQuantity
+                    })
+                });
+            }
+            finally
+            {
+                myLock.Release();
+            }
         }
 
         // ── DELETE /api/prescriptions/{id} ──────────────────────────────────

@@ -26,22 +26,41 @@ class TriageService {
     required String symptoms,
     File? imageFile,
   }) async {
-    String fullSymptoms = symptoms;
+    String? attachmentId;
+    final token = await AuthService.getAccessToken();
+
+    // 1. Upload image if present
     if (imageFile != null) {
-      final bytes  = await imageFile.readAsBytes();
-      final b64    = base64Encode(bytes);
-      // Embed a short preview of the base64 so the doctor can see an image was attached
-      fullSymptoms += '\n\n[PHOTO_ATTACHED: ${b64.substring(0, 50)}...]';
+      final uploadUri = Uri.parse('$_baseUrl/api/triage/upload-image');
+      final req = http.MultipartRequest('POST', uploadUri);
+      if (token != null) req.headers['Authorization'] = 'Bearer $token';
+      req.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+      final uploadResp = await req.send().timeout(const Duration(seconds: 120));
+        final bodyStr = await uploadResp.stream.bytesToString();
+        if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
+          final bodyJson = jsonDecode(bodyStr);
+          attachmentId = bodyJson['attachmentId'];
+        } else {
+          throw HttpException('Image upload failed: ${uploadResp.statusCode} - $bodyStr');
+        }
     }
 
+    // 2. Submit triage data
     final headers = await _authHeaders();
+    final body = {
+      'patientId': patientId,
+      'symptoms': symptoms,
+      if (attachmentId != null) 'attachmentId': attachmentId
+    };
+
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/triage'),
           headers: headers,
-          body: jsonEncode({'patientId': patientId, 'symptoms': fullSymptoms}),
+          body: jsonEncode(body),
         )
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 120));
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -82,5 +101,31 @@ class TriageService {
     }
     throw HttpException(
         'Fetch by ID failed (${response.statusCode}): ${response.body}');
+  }
+
+  // ── Revise a triage request ────────────────────────────────────────────────
+  // POST /api/triage/{id}/revise
+  static Future<Map<String, dynamic>> reviseTriage({
+    required String triageId,
+    required String updatedSymptoms,
+    required DateTime expectedUpdatedAt,
+  }) async {
+    final headers = await _authHeaders();
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/triage/$triageId/revise'),
+          headers: headers,
+          body: jsonEncode({
+            'updatedSymptoms': updatedSymptoms,
+            'expectedUpdatedAt': expectedUpdatedAt.toIso8601String(),
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw HttpException(
+        'Revise triage failed (${response.statusCode}): ${response.body}');
   }
 }

@@ -19,6 +19,10 @@ namespace CareFlowAI.API.Models
         /// <summary>Raw symptom text submitted by the patient from the Flutter app.</summary>
         public string Symptoms { get; set; } = string.Empty;
 
+        /// <summary>Optional attachment ID for the symptoms image.</summary>
+        public Guid? AttachmentId { get; set; }
+        public TriageAttachment? Attachment { get; set; }
+
         /// <summary>
         /// AI-assessed urgency: "Low" | "Medium" | "High" | "Critical"
         /// </summary>
@@ -46,5 +50,8 @@ namespace CareFlowAI.API.Models
         // ── Navigation Property ───────────────────────────────────────────────
         /// <summary>All AI agent runs triggered by this triage submission.</summary>
         public ICollection<AgentWorkflowState> AgentWorkflows { get; set; } = new List<AgentWorkflowState>();
+
+        /// <summary>Immutable history of doctor reviews, decisions, and notes.</summary>
+        public ICollection<TriageReviewHistory> ReviewHistories { get; set; } = new List<TriageReviewHistory>();
     }
 }
