@@ -51,6 +51,7 @@ class TriageService {
     final body = <String, dynamic>{
       'patientId': patientId,
       'symptoms': symptoms,
+      // ignore: use_null_aware_elements
       if (attachmentId != null) 'attachmentId': attachmentId,
     };
 

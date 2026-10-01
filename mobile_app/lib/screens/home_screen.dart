@@ -283,15 +283,12 @@ class _MenuCard extends StatelessWidget {
   final String       title;
   final String       subtitle;
   final VoidCallback onTap;
-  final String?      badge;
-
   const _MenuCard({
     required this.icon,
     required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.badge,
   });
 
   @override
@@ -334,23 +331,6 @@ class _MenuCard extends StatelessWidget {
                                 color: AppTheme.textDark,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600)),
-                        if (badge != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.pending
-                                  .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(badge!,
-                                style: const TextStyle(
-                                    color: AppTheme.pending,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
