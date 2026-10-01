@@ -2,6 +2,7 @@
 // Uses flutter_local_notifications to schedule and show local alerts
 // when a prescription moves to "Issued" (medication ready for pickup).
 
+import 'dart:ui' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MedicationNotificationService {
@@ -49,7 +50,7 @@ class MedicationNotificationService {
         int.parse(prescriptionId.replaceAll('-', '').substring(0, 8), radix: 16)
             .abs();
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       'medication_ready',                     // channel id
       'Medication Readiness',                 // channel name
       channelDescription:
@@ -57,7 +58,7 @@ class MedicationNotificationService {
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
-      color: Color(0xFF6C63FF),
+      color: const Color(0xFF6C63FF),
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -66,7 +67,7 @@ class MedicationNotificationService {
       presentSound: true,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
