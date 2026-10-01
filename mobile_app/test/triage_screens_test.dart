@@ -155,6 +155,17 @@ void main() {
     expect(find.text('Submission Received!'), findsOneWidget);
   });
 
+  testWidgets('timeout warns about uncertain submission and avoids automatic retry', (tester) async {
+    final repo = FakeRepository()
+      ..onSubmit = () async => throw TimeoutException('Delayed response');
+    await mount(tester, SubmitTriageScreen(repository: repo));
+    await submit(tester);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Check your triage history before submitting again'), findsOneWidget);
+    expect(find.text('Submission Received!'), findsNothing);
+    expect(repo.submissions, 1);
+  });
+
   for (final fails in [false, true]) {
     testWidgets(
       'leaving during submission handles late ${fails ? 'error' : 'success'}',

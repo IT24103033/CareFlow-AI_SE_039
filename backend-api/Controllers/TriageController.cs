@@ -120,12 +120,13 @@ namespace CareFlowAI.API.Controllers
         [HttpPost("upload-image")]
         public async Task<IActionResult> UploadImage(IFormFile image, [FromServices] CloudinaryDotNet.Cloudinary cloudinary, CancellationToken cancellationToken = default)
         {
-            if (image == null || image.Length == 0) return BadRequest("No image provided.");
+            if (image == null) return BadRequest("No image provided (image parameter is null).");
+            if (image.Length == 0) return BadRequest("Image provided but length is 0.");
             
-            if (image.Length > 5 * 1024 * 1024) return BadRequest("Image size exceeds the 5MB limit.");
+            if (image.Length > 5 * 1024 * 1024) return BadRequest($"Image size ({image.Length} bytes) exceeds the 5MB limit.");
 
-            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
-            if (!allowedTypes.Contains(image.ContentType)) return BadRequest("Invalid file type. Only JPEG, PNG, and WebP are allowed.");
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "application/octet-stream" };
+            if (!allowedTypes.Contains(image.ContentType)) return BadRequest($"Invalid file type '{image.ContentType}'. Only JPEG, PNG, and WebP are allowed.");
 
             if (cloudinary == null) return StatusCode(500, "Cloudinary configuration is missing.");
 

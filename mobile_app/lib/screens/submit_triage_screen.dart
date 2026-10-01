@@ -1,6 +1,7 @@
 // Component B – Submit Triage Screen (Redesigned)
 // CareFlow AI healthcare aesthetic: navy header, white content card.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -147,7 +148,9 @@ class _SubmitTriageScreenState extends State<SubmitTriageScreen> {
       if (!mounted) return;
       setState(
         () => _errorMessage =
-            'Submission failed. Make sure the backend is running.\n\nError: $e',
+            e is TimeoutException
+                ? 'The request timed out. Your submission may still be processing. Check your triage history before submitting again.'
+                : 'Submission failed. Check your connection and try again.\n\nError: $e',
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -458,7 +461,7 @@ class _SubmitTriageScreenState extends State<SubmitTriageScreen> {
           _fieldLabel('Attach a Photo (Optional)'),
           const SizedBox(height: 4),
           const Text(
-            'A photo of a rash, injury, or visible symptom helps the AI assess better.',
+            'Photos are attached for doctor review. The AI currently assesses your written symptoms.',
             style: TextStyle(color: AppTheme.textLight, fontSize: 12),
           ),
           const SizedBox(height: 8),

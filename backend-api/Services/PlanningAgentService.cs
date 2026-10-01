@@ -106,6 +106,7 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                             trace.Events.Add(new("DomainAnalysis", "Completed", analysisTimer.ElapsedMilliseconds));
                         }
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
                     {
                         analysisTimer.Stop();

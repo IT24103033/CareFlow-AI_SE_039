@@ -50,12 +50,14 @@ namespace CareFlowAI.Orchestrator.Agents
         private readonly IDomainContextAdapter _contextAdapter;
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly string _modelName;
 
-        public DomainAnalysisAgent(IDomainContextAdapter contextAdapter, string apiKey, HttpClient? httpClient = null)
+        public DomainAnalysisAgent(IDomainContextAdapter contextAdapter, string apiKey, string modelName, HttpClient? httpClient = null)
         {
             _contextAdapter = contextAdapter;
             _httpClient = httpClient ?? new HttpClient();
             _apiKey = apiKey;
+            _modelName = modelName;
         }
 
         public async Task<AgentOutput> AnalyzeRiskAsync(AgentInput input, System.Threading.CancellationToken cancellationToken = default)
@@ -96,10 +98,26 @@ namespace CareFlowAI.Orchestrator.Agents
                 {
                     throw new DomainAnalysisException("DOMAIN_NOT_CONFIGURED", "Gemini API key is not configured.");
                 }
+                
+                if (string.IsNullOrWhiteSpace(_modelName))
+                {
+                    throw new DomainAnalysisException("DOMAIN_NOT_CONFIGURED", "Gemini Model name is not configured.");
+                }
 
                 // Send the request over the internet
-                string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={_apiKey}";
-                var response = await _httpClient.PostAsync(endpoint, content, cancellationToken);
+                string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{_modelName}:generateContent?key={_apiKey}";
+                HttpResponseMessage response;
+                // Retry only transient provider failures, within the caller's deadline.
+                for (var attempt = 1; ; attempt++)
+                {
+                    response = await _httpClient.PostAsync(endpoint, content, cancellationToken);
+                    var status = (int)response.StatusCode;
+                    if (attempt >= 3 || !(status == 429 || status == 502 || status == 503 || status == 504))
+                        break;
+                    response.Dispose();
+                    await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+                }
+                using var responseLifetime = response;
                 
                 if (!response.IsSuccessStatusCode)
                 {
