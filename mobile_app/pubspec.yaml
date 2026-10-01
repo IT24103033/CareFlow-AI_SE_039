@@ -45,6 +45,12 @@ dependencies:
   # Camera & image picker — mandatory device feature integration
   image_picker: ^1.1.2
 
+  # ── Component D: Pharmacy (Amodhya) ─────────────────────────────────────────
+  # QR code generation for prescription pickup
+  qr_flutter: ^4.1.0
+  # Local push notifications for medication readiness alerts
+  flutter_local_notifications: ^18.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
