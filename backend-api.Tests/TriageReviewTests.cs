@@ -34,7 +34,7 @@ public class TriageReviewTests
             new PlanningAgentService(
                 new PatientContextTool(db), 
                 new GeminiAssessmentClient(new ConfigurationBuilder().Build()), 
-                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy"),
+                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy", "gemini-3.8-flash"),
                 new ConfigurationBuilder().Build()),
             new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(),
             new PharmacyAiService())

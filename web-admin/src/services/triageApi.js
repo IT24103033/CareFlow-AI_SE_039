@@ -27,5 +27,6 @@ export function createTriageApi(getAccessToken = () => null) {
     list: (filters, signal) => request(`/review-queue?${new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== ''))}`, { signal }),
     detail: (id, signal) => request(`/review-queue/${encodeURIComponent(id)}`, { signal }),
     review: (id, decision) => request(`/${encodeURIComponent(id)}/review`, { method: 'PATCH', body: JSON.stringify(decision) }),
+    retry: (id) => request(`/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
   };
 }

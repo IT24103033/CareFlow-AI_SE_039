@@ -70,7 +70,8 @@ builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(
     var adapter = new DomainContextWrapper(tool);
     return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
         adapter,
-        builder.Configuration["GeminiApiKey"] ?? builder.Configuration["Gemini:ApiKey"] ?? string.Empty
+        builder.Configuration["Gemini:ApiKey"] ?? string.Empty,
+        builder.Configuration["Gemini:Model"] ?? string.Empty
     );
 });
 builder.Services.AddScoped<PlanningAgentService>();

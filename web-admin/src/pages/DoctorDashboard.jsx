@@ -1,12 +1,5 @@
-import React from 'react';
+import TriageReview from './TriageReview';
 
-const DoctorDashboard = () => {
-  return (
-    <div className="dashboard-content">
-      <h2>Doctor Dashboard</h2>
-      <p>Content for doctor goes here...</p>
-    </div>
-  );
-};
-
-export default DoctorDashboard;
+export default function DoctorDashboard() {
+  return <TriageReview />;
+}

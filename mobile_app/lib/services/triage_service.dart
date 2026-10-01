@@ -36,7 +36,7 @@ class TriageService {
       if (token != null) req.headers['Authorization'] = 'Bearer $token';
       req.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
-      final uploadResp = await req.send().timeout(const Duration(seconds: 30));
+      final uploadResp = await req.send().timeout(const Duration(seconds: 120));
         final bodyStr = await uploadResp.stream.bytesToString();
         if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
           final bodyJson = jsonDecode(bodyStr);
@@ -60,7 +60,7 @@ class TriageService {
           headers: headers,
           body: jsonEncode(body),
         )
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 120));
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -120,7 +120,7 @@ class TriageService {
             'expectedUpdatedAt': expectedUpdatedAt.toIso8601String(),
           }),
         )
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 120));
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;

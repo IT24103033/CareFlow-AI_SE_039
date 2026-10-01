@@ -15,7 +15,7 @@ export default function TriageReview({ api }) {
   const { getAccessToken } = useAuth();
   const activeApi = useMemo(() => api || createTriageApi(getAccessToken), [api, getAccessToken]);
 
-  const [filters, setFilters] = useState({ search: '', status: 'InReview', severity: '', sort: 'urgency', page: 1, pageSize: 10 });
+  const [filters, setFilters] = useState({ search: '', status: '', severity: '', sort: 'urgency', page: 1, pageSize: 10 });
   const [search, setSearch] = useState('');
   const [queue, setQueue] = useState({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function TriageReview({ api }) {
   const pages = Math.max(1, Math.ceil(queue.total / filters.pageSize));
   return <main className="triage-page">
     <header className="triage-heading">
-      <div><p className="triage-eyebrow">CLINICAL WORKSPACE</p><h1>Triage review</h1><p>Review patient submissions and record your clinical decision.</p></div>
+      <div><p className="triage-eyebrow">CLINICAL WORKSPACE</p><h1>Triage review</h1><p>All saved submissions appear here, including failed AI assessments that need follow-up.</p></div>
       <button onClick={reload} disabled={loading}>Refresh queue</button>
     </header>
     {notice && <p className="triage-notice" role="status">{notice}</p>}
@@ -109,6 +109,17 @@ function CaseDetail({ id, api, onDecision }) {
     } catch (err) { setError(err.message); setConflict(err.status === 409 || err.status === 401 || err.status === 403); }
     finally { setSaving(false); }
   }
+
+  const failed = record?.aiAgentStatus === 'Failed';
+  async function handleRetry() {
+    if (saving || conflict) return;
+    setSaving(true); setError('');
+    try {
+      const updated = await api.retry(id);
+      setRecord(updated); onDecision('Retried');
+    } catch (err) { setError(err.message); }
+    finally { setSaving(false); }
+  }
   return <section className="triage-panel triage-detail" aria-label="Case details">
     <div className="triage-detail-heading"><h2>Case details</h2><button onClick={reload} disabled={saving}>Reload case</button></div>
     {error && <p className="triage-error" role="alert">{error}</p>}
@@ -139,6 +150,7 @@ function CaseDetail({ id, api, onDecision }) {
       {record.planningExecution && <details className="triage-execution"><summary>Planning execution summary</summary>
         <p>Status: {record.planningExecution.status} · Model attempts: {record.planningExecution.modelAttempts}</p>
         {record.planningExecution.failureCode && <p className="triage-error">Assessment unavailable. No urgency was assigned. Staff follow-up is required.</p>}
+        {failed && <button onClick={handleRetry} disabled={saving} style={{ marginTop: '10px' }}>Retry Assessment</button>}
         <ul>{record.planningExecution.events.map((event, index) => <li key={index}>{event.operation}: {event.outcome} ({event.durationMs} ms)</li>)}</ul>
       </details>}
       <dl><dt>Agent status</dt><dd>{label(record.aiAgentStatus)}</dd><dt>Approval status</dt><dd>{label(record.approvalStatus)}</dd><dt>Last updated</dt><dd>{date(record.updatedAt)}</dd></dl>
