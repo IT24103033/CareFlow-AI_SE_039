@@ -1,4 +1,4 @@
-name: Flutter Component B CI
+name: Flutter Mobile CI
 
 on:
   push:
@@ -12,26 +12,29 @@ permissions:
   contents: read
 
 jobs:
-  triage-tests:
+  flutter-ci:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: mobile_app
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.8'
+          flutter-version: '3.47.5'
           channel: stable
           cache: true
-      - run: flutter pub get
-      - name: Analyze Component B screens and tests
-        run: >-
-          flutter analyze --no-pub
-          lib/screens/submit_triage_screen.dart
-          lib/screens/triage_dashboard_screen.dart
-          lib/services/triage_repository.dart
-          test/triage_screens_test.dart
-          test/widget_test.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter project
+        run: flutter analyze --no-pub --no-fatal-infos
+
       - name: Run Flutter tests
         run: flutter test --no-pub

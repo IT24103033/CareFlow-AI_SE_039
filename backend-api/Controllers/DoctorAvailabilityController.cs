@@ -1,3 +1,4 @@
+
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -36,6 +37,49 @@ namespace CareFlowAI.API.Controllers
             var availability = await _service.GetByDoctorIdAsync(doctorId);
 
             return Ok(availability);
+        }
+
+        // GET: api/DoctorAvailability/search
+        [HttpGet("search")]
+        public async Task<ActionResult<List<DoctorAvailabilityDto>>> Search(
+            [FromQuery] string? specialization,
+            [FromQuery] Guid? doctorId,
+            [FromQuery] DateOnly? date)
+        {
+            var availability = await _service.SearchAsync(
+                specialization,
+                doctorId,
+                date);
+
+            return Ok(availability);
+        }
+
+        // GET: api/DoctorAvailability/slots
+        [HttpGet("slots")]
+        public async Task<ActionResult<List<AvailableSlotDto>>> GetAvailableSlots(
+            [FromQuery] Guid doctorId,
+            [FromQuery] DateOnly date,
+            [FromQuery] int slotDurationMinutes = 30)
+        {
+            try
+            {
+                var slots = await _service.GetAvailableSlotsAsync(
+                    doctorId,
+                    date,
+                    slotDurationMinutes);
+
+                if (slots.Count == 0)
+                {
+                    return NotFound(
+                        "No availability found for the selected doctor and date.");
+                }
+
+                return Ok(slots);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // POST: api/DoctorAvailability

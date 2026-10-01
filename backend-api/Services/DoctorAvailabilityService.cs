@@ -1,3 +1,4 @@
+
 using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
@@ -74,12 +75,120 @@ namespace CareFlowAI.API.Services
                 .FirstOrDefaultAsync();
         }
 
+        // Search doctor availability using optional filters
+        public async Task<List<DoctorAvailabilityDto>> SearchAsync(
+            string? specialization,
+            Guid? doctorId,
+            DateOnly? date)
+        {
+            var query = _context.DoctorAvailabilities
+                .Include(a => a.Doctor)
+                .AsQueryable();
+
+            // Filter by specialization
+            if (!string.IsNullOrWhiteSpace(specialization))
+            {
+                query = query.Where(a =>
+                    a.Doctor.Specialization.ToLower()
+                        == specialization.ToLower());
+            }
+
+            // Filter by doctor
+            if (doctorId.HasValue)
+            {
+                query = query.Where(a =>
+                    a.DoctorId == doctorId.Value);
+            }
+
+            // Filter by date
+            if (date.HasValue)
+            {
+                query = query.Where(a =>
+                    a.Date == date.Value);
+            }
+
+            return await query
+                .Select(a => new DoctorAvailabilityDto
+                {
+                    Id = a.Id,
+                    DoctorId = a.DoctorId,
+                    DoctorName = a.Doctor.FullName,
+                    Specialization = a.Doctor.Specialization,
+                    Date = a.Date,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime
+                })
+                .OrderBy(a => a.Date)
+                .ThenBy(a => a.StartTime)
+                .ToListAsync();
+        }
+
+        // Get available appointment slots for a doctor on a specific date
+        public async Task<List<AvailableSlotDto>> GetAvailableSlotsAsync(
+            Guid doctorId,
+            DateOnly date,
+            int slotDurationMinutes = 30)
+        {
+            if (slotDurationMinutes <= 0)
+            {
+                throw new ArgumentException(
+                    "Slot duration must be greater than zero.");
+            }
+
+            var doctor = await _context.Doctors
+                .FirstOrDefaultAsync(d =>
+                    d.Id == doctorId &&
+                    d.IsActive);
+
+            if (doctor == null)
+            {
+                return new List<AvailableSlotDto>();
+            }
+
+            var availabilities = await _context.DoctorAvailabilities
+                .Where(a =>
+                    a.DoctorId == doctorId &&
+                    a.Date == date)
+                .OrderBy(a => a.StartTime)
+                .ToListAsync();
+
+            var slots = new List<AvailableSlotDto>();
+
+            foreach (var availability in availabilities)
+            {
+                var currentTime = availability.StartTime;
+
+                while (currentTime.AddMinutes(slotDurationMinutes)
+                       <= availability.EndTime)
+                {
+                    var slotEndTime =
+                        currentTime.AddMinutes(slotDurationMinutes);
+
+                    slots.Add(new AvailableSlotDto
+                    {
+                        DoctorId = doctor.Id,
+                        DoctorName = doctor.FullName,
+                        Specialization = doctor.Specialization,
+                        Date = date,
+                        StartTime = currentTime,
+                        EndTime = slotEndTime
+                    });
+
+                    currentTime = slotEndTime;
+                }
+            }
+
+            return slots;
+        }
+
         // Create a new availability record
         public async Task<DoctorAvailabilityDto?> CreateAsync(
             CreateDoctorAvailabilityDto dto)
         {
             var doctor = await _context.Doctors
-                .FirstOrDefaultAsync(d => d.Id == dto.DoctorId && d.IsActive);
+                .FirstOrDefaultAsync(d =>
+                    d.Id == dto.DoctorId &&
+                    d.IsActive);
 
             if (doctor == null)
             {
@@ -198,3 +307,4 @@ namespace CareFlowAI.API.Services
         }
     }
 }
+
