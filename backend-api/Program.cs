@@ -137,15 +137,17 @@ builder.Services.AddScoped<DoctorAvailabilityService>();
 // Component C: Appointment Scheduling Service
 builder.Services.AddScoped<AppointmentService>();
 
-// Component C: Appointment Action Agent
+// Component C: Appointment Action Agent tools (allow-listed tool set)
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.FindAvailableSlotsTool>();
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CheckBookingConflictTool>();
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CreateTentativeBookingTool>();
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.AppointmentActionAgent>();
 builder.Services.AddScoped<AppointmentWorkflowRunner>();
 
 // Component D: Third-Party SMS & Email Notification Service
 builder.Services.AddHttpClient<INotificationService, NotificationService>();
 builder.Services.AddScoped<PharmacyAiService>();
 builder.Services.AddScoped<ISafetyAgent>(sp => sp.GetRequiredService<PharmacyAiService>());
-
-builder.Services.AddScoped<PharmacyAiService>();
 
 // Create the CORS policy
 builder.Services.AddCors(options =>

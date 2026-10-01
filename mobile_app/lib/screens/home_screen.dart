@@ -127,20 +127,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                _sectionLabel('COMING SOON'),
+                _sectionLabel('APPOINTMENTS'),
                 const SizedBox(height: 12),
                 _MenuCard(
                   icon: Icons.calendar_month_outlined,
                   iconColor: const Color(0xFFD69E2E),
                   title: 'My Appointments',
-                  subtitle: 'Upcoming appointments — Component C',
-                  badge: 'Soon',
-                  onTap: () =>
-                      ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Appointments feature coming soon!')),
-                  ),
+                  subtitle: 'Check doctor availability & book a slot',
+                  onTap: () => Navigator.pushNamed(context, '/appointments'),
                 ),
               ]),
             ),

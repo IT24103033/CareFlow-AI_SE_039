@@ -81,7 +81,7 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     )
@@ -97,7 +97,7 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.12),
+                            color: color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(_wardIcon(ward.wardType), color: color, size: 24),
@@ -122,7 +122,7 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.12),
+                            color: color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
