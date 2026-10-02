@@ -39,7 +39,7 @@ class CareFlowApp extends StatelessWidget {
 }
 
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({super.key});
+  const _AuthGate();
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
