@@ -1,4 +1,3 @@
-
 using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
@@ -307,4 +306,3 @@ namespace CareFlowAI.API.Services
         }
     }
 }
-

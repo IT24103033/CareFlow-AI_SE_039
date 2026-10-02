@@ -18,6 +18,12 @@ namespace CareFlowAI.API.DTOs
 
         public string Status { get; set; } = string.Empty;
 
+        public string ApprovalStatus { get; set; } = string.Empty;
+
+        public Guid? ApprovedByDoctorId { get; set; }
+
+        public DateTime? ApprovedAt { get; set; }
+
         public DateTime CreatedAt { get; set; }
     }
 }

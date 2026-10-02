@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CareFlowAI.Orchestrator.Models;
 using CareFlowAI.Orchestrator.Tools;
 
 namespace CareFlowAI.Orchestrator.Agents
@@ -28,7 +29,7 @@ namespace CareFlowAI.Orchestrator.Agents
         //
         // The agent does NOT directly access the database.
         // It can only use the explicitly allow-listed tools.
-        public async Task<string> FindAndBookAsync(
+        public async Task<AppointmentActionResult> FindAndBookAsync(
             Guid doctorId,
             Guid patientId,
             DateOnly appointmentDate,
@@ -36,14 +37,15 @@ namespace CareFlowAI.Orchestrator.Agents
             TimeOnly endTime)
         {
             // Step 1: Find available slots
-            var availableSlotsJson =
+            var availableSlotsResult =
                 await _findAvailableSlotsTool.ExecuteAsync(
                     doctorId,
                     appointmentDate);
 
-            if (!availableSlotsJson.StartsWith("["))
+            // Pass structured failures directly to the caller.
+            if (availableSlotsResult.Status != AppointmentActionStatus.Success)
             {
-                return availableSlotsJson;
+                return availableSlotsResult;
             }
 
             // Step 2: Verify that the exact requested slot
@@ -51,7 +53,7 @@ namespace CareFlowAI.Orchestrator.Agents
             try
             {
                 using var document =
-                    JsonDocument.Parse(availableSlotsJson);
+                    JsonDocument.Parse(availableSlotsResult.Message);
 
                 var requestedSlotExists =
                     document.RootElement.EnumerateArray()
@@ -64,12 +66,14 @@ namespace CareFlowAI.Orchestrator.Agents
 
                 if (!requestedSlotExists)
                 {
-                    return "The requested appointment time is not available.";
+                    return AppointmentActionResult.Unavailable(
+                        "The requested appointment time is not available.");
                 }
             }
             catch (JsonException)
             {
-                return "Unable to process the available appointment slots.";
+                return AppointmentActionResult.ProviderError(
+                    "Unable to process the available appointment slots.");
             }
 
             // Step 3: Check for an existing booking conflict
@@ -81,11 +85,9 @@ namespace CareFlowAI.Orchestrator.Agents
                     startTime,
                     endTime);
 
-            if (conflictResult.Contains(
-                "\"hasConflict\":true",
-                StringComparison.OrdinalIgnoreCase))
+            if (conflictResult.Status != AppointmentActionStatus.Success)
             {
-                return "The selected appointment time is already booked.";
+                return conflictResult;
             }
 
             // Step 4: Create a tentative booking
