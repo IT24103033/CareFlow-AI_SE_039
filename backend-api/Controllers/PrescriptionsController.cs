@@ -124,6 +124,8 @@ namespace CareFlowAI.API.Controllers
                     p.NotificationSent,
                     p.NotificationChannel,
                     p.NotifiedAt,
+                    p.NotificationFailureReason,
+                    p.NotificationRetryCount,
                     p.CreatedAt,
                     p.UpdatedAt,
                     Items = p.Items.Select(i => new
@@ -257,6 +259,11 @@ namespace CareFlowAI.API.Controllers
         }
 
         // ── PUT /api/prescriptions/{id} ──────────────────────────────────────
+        /// <summary>
+        /// Updates mutable prescription metadata (notes only).
+        /// IssuedByDoctorId is NOT accepted here; it is derived exclusively from the
+        /// authenticated doctor's claim during the /approve action.
+        /// </summary>
         [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePrescriptionDto dto)
@@ -264,8 +271,7 @@ namespace CareFlowAI.API.Controllers
             var prescription = await _context.Prescriptions.FindAsync(id);
             if (prescription is null) return NotFound(new { message = "Prescription not found." });
 
-            if (dto.Notes             is not null) prescription.Notes             = dto.Notes;
-            if (dto.IssuedByDoctorId  is not null) prescription.IssuedByDoctorId  = dto.IssuedByDoctorId;
+            if (dto.Notes is not null) prescription.Notes = dto.Notes;
 
             prescription.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -276,8 +282,9 @@ namespace CareFlowAI.API.Controllers
         // ── PATCH /api/prescriptions/{id}/approve ────────────────────────────
         /// <summary>
         /// Human-in-the-loop: Doctor approves or rejects the AI-validated prescription.
-        /// On Approve → Status = "Issued" and real provider notification is dispatched.
+        /// On Approve → Status = "Issued" and real provider notification is dispatched to the actual patient.
         /// On Reject  → Status = "Cancelled".
+        /// IssuedByDoctorId is derived exclusively from the authenticated doctor_id JWT claim.
         /// </summary>
         [Authorize(Roles = "Doctor")]
         [HttpPatch("{id:guid}/approve")]
@@ -327,27 +334,33 @@ namespace CareFlowAI.API.Controllers
                 prescription.IssuedByDoctorId = doctorId;
                 prescription.Notes            = dto.DoctorNotes ?? prescription.Notes;
 
-                // ── Trigger third-party SMS & Email notification ──
+                // ── Dispatch notification to the ACTUAL patient ───────────────
                 var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine?.Name ?? "Medicine"} x{i.Quantity} ({i.Dosage})"));
-                var notificationSuccess = await _notificationService.DispatchPrescriptionNotificationAsync(
+
+                prescription.NotificationRetryCount += 1;
+
+                var (notificationSuccess, failureReason) = await _notificationService.DispatchPrescriptionNotificationAsync(
                     prescription.Patient?.FullName ?? "Patient",
-                    "patient@careflow.hospital.org",
+                    prescription.Patient?.Email,
+                    prescription.Patient?.Phone,
                     medSummary,
                     "Both"
                 );
 
-                // Record delivery success only after actual provider success
+                // Record delivery outcome accurately
                 if (notificationSuccess)
                 {
-                    prescription.NotificationSent    = true;
-                    prescription.NotificationChannel = "Email & SMS";
-                    prescription.NotifiedAt          = DateTime.UtcNow;
+                    prescription.NotificationSent         = true;
+                    prescription.NotificationChannel      = "Email & SMS";
+                    prescription.NotifiedAt               = DateTime.UtcNow;
+                    prescription.NotificationFailureReason = null;
                 }
                 else
                 {
-                    prescription.NotificationSent    = false;
-                    prescription.NotificationChannel = null;
-                    prescription.NotifiedAt          = null;
+                    prescription.NotificationSent         = false;
+                    prescription.NotificationChannel      = null;
+                    prescription.NotifiedAt               = null;
+                    prescription.NotificationFailureReason = failureReason ?? "Unknown provider error.";
                 }
             }
             else if (dto.Decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
@@ -370,11 +383,82 @@ namespace CareFlowAI.API.Controllers
                 prescription.Status,
                 prescription.NotificationSent,
                 prescription.NotificationChannel,
+                prescription.NotificationFailureReason,
+                prescription.NotificationRetryCount,
                 message = dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase)
                     ? (prescription.NotificationSent
                         ? "Prescription issued. Patient notified via Third-Party Email and SMS."
-                        : "Prescription issued. Notification delivery to patient failed.")
+                        : $"Prescription issued. Notification delivery to patient failed: {prescription.NotificationFailureReason}")
                     : "Prescription rejected and cancelled."
+            });
+        }
+
+        // ── PATCH /api/prescriptions/{id}/notify-retry ───────────────────────
+        /// <summary>
+        /// Retries dispatching the prescription-issued notification to the patient.
+        /// Guard: only works on Issued prescriptions where the previous notification failed.
+        /// Prevents duplicate notification if already delivered successfully.
+        /// </summary>
+        [Authorize(Roles = "Doctor,Staff,Admin")]
+        [HttpPatch("{id:guid}/notify-retry")]
+        public async Task<IActionResult> RetryNotification(Guid id)
+        {
+            var prescription = await _context.Prescriptions
+                .Include(p => p.Patient)
+                .Include(p => p.Items)
+                    .ThenInclude(i => i.Medicine)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (prescription is null)
+                return NotFound(new { message = "Prescription not found." });
+
+            if (prescription.Status != "Issued")
+                return BadRequest(new { message = $"Notification retry is only available for Issued prescriptions. Current status: '{prescription.Status}'." });
+
+            if (prescription.NotificationSent)
+                return Conflict(new { message = "Notification has already been successfully delivered. Retry is not needed." });
+
+            // Perform retry
+            var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine?.Name ?? "Medicine"} x{i.Quantity} ({i.Dosage})"));
+
+            prescription.NotificationRetryCount += 1;
+
+            var (notificationSuccess, failureReason) = await _notificationService.DispatchPrescriptionNotificationAsync(
+                prescription.Patient?.FullName ?? "Patient",
+                prescription.Patient?.Email,
+                prescription.Patient?.Phone,
+                medSummary,
+                "Both"
+            );
+
+            if (notificationSuccess)
+            {
+                prescription.NotificationSent         = true;
+                prescription.NotificationChannel      = "Email & SMS";
+                prescription.NotifiedAt               = DateTime.UtcNow;
+                prescription.NotificationFailureReason = null;
+            }
+            else
+            {
+                prescription.NotificationSent         = false;
+                prescription.NotificationChannel      = null;
+                prescription.NotifiedAt               = null;
+                prescription.NotificationFailureReason = failureReason ?? "Unknown provider error.";
+            }
+
+            prescription.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                prescription.Id,
+                prescription.Status,
+                prescription.NotificationSent,
+                prescription.NotificationFailureReason,
+                prescription.NotificationRetryCount,
+                message = notificationSuccess
+                    ? "Notification retry succeeded. Patient has been notified."
+                    : $"Notification retry failed: {prescription.NotificationFailureReason}"
             });
         }
 
@@ -418,7 +502,7 @@ namespace CareFlowAI.API.Controllers
                     var medicine = medicines.FirstOrDefault(m => m.Id == medId);
                     if (medicine == null || medicine.StockQuantity < totalQty)
                     {
-                        var medName = medicine?.Name ?? medId.ToString();
+                        var medName   = medicine?.Name ?? medId.ToString();
                         var available = medicine?.StockQuantity ?? 0;
                         return BadRequest(new
                         {
