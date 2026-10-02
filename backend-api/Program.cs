@@ -17,16 +17,14 @@ builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Cloudinary configuration
 var cloudinaryUrl = builder.Configuration["CLOUDINARY_URL"];
-Console.WriteLine($"[DEBUG] Initial CLOUDINARY_URL from config: '{cloudinaryUrl}'");
-if (string.IsNullOrWhiteSpace(cloudinaryUrl))
-{
-    Console.WriteLine("[DEBUG] CLOUDINARY_URL was empty. Attempting to read directly or defaulting.");
-    // Force a default if still empty to prevent crash
-    cloudinaryUrl = "cloudinary://161829816887548:MgiIVisavOaHwhcupFMwDWO7AZM@djzdis9tb"; 
-}
 
-if (!string.IsNullOrEmpty(cloudinaryUrl))
+Console.WriteLine(
+    $"[DEBUG] Initial CLOUDINARY_URL from config: " +
+    $"{(string.IsNullOrWhiteSpace(cloudinaryUrl) ? "empty" : "configured")}");
+
+if (!string.IsNullOrWhiteSpace(cloudinaryUrl))
 {
     var cloudinary = new Cloudinary(cloudinaryUrl);
     cloudinary.Api.Secure = true;
@@ -44,7 +42,10 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Description =
+            "JWT Authorization header using the Bearer scheme. " +
+            "Example: \"Authorization: Bearer {token}\"",
+
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -67,34 +68,59 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Component B: controlled context access, model adapter and planner.
-builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
-builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
 
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp => 
+// ============================================================
+// Component B: Patient Context, Assessment & Planning
+// ============================================================
+
+builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
+
+builder.Services.AddScoped<
+    IClinicalAssessmentClient,
+    GeminiAssessmentClient>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp =>
 {
-    var tool = sp.GetRequiredService<IPatientContextTool>();
-    var adapter = new DomainContextWrapper(tool);
+    var tool =
+        sp.GetRequiredService<IPatientContextTool>();
+
+    var adapter =
+        new DomainContextWrapper(tool);
+
     return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
         adapter,
-        builder.Configuration["Gemini:ApiKey"] ?? string.Empty,
-        builder.Configuration["Gemini:Model"] ?? string.Empty
+        builder.Configuration["Gemini:ApiKey"]
+            ?? string.Empty,
+        builder.Configuration["Gemini:Model"]
+            ?? string.Empty
     );
 });
+
 builder.Services.AddScoped<PlanningAgentService>();
-builder.Services.AddHostedService<CareFlowAI.AIOrchestrator.WorkflowManager>();
 
+builder.Services.AddHostedService<
+    CareFlowAI.AIOrchestrator.WorkflowManager>();
+
+
+// ============================================================
 // JWT & Security Services
-builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+// ============================================================
 
-// Authentication & JWT Bearer configuration
-var jwtSecret = builder.Configuration["Jwt:Secret"]
+builder.Services.AddScoped<
+    IJwtTokenService,
+    JwtTokenService>();
+
+var jwtSecret =
+    builder.Configuration["Jwt:Secret"]
     ?? "CareFlowAI_Super_Secret_Key_For_Jwt_Signing_Must_Be_Long_Enough_2026!";
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"]
     ?? "CareFlowAI";
 
-var jwtAudience = builder.Configuration["Jwt:Audience"]
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"]
     ?? "CareFlowAI.Clients";
 
 builder.Services.AddAuthentication(options =>
@@ -107,60 +133,136 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
+    options.TokenValidationParameters =
+        new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
 
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
 
-        IssuerSigningKey =
-            new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtSecret)),
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSecret)),
 
-        ClockSkew = TimeSpan.Zero
-    };
+            ClockSkew = TimeSpan.Zero
+        };
 });
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Component C: Doctor Availability Service
-builder.Services.AddScoped<DoctorAvailabilityService>();
+// ============================================================
+// Database
+// ============================================================
 
-// Component C: Appointment Scheduling Service
-builder.Services.AddScoped<AppointmentService>();
+builder.Services.AddDbContext<ApplicationDbContext>(
+    options =>
+        options.UseNpgsql(
+            builder.Configuration
+                .GetConnectionString("DefaultConnection")));
 
-// Component C: Appointment Action Agent tools (allow-listed tool set)
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.FindAvailableSlotsTool>();
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CheckBookingConflictTool>();
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CreateTentativeBookingTool>();
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.AppointmentActionAgent>();
-builder.Services.AddScoped<AppointmentWorkflowRunner>();
 
-// Component D: Third-Party SMS & Email Notification Service
-builder.Services.AddHttpClient<INotificationService, NotificationService>();
-builder.Services.AddScoped<PharmacyAiService>();
-builder.Services.AddScoped<ISafetyAgent>(sp => sp.GetRequiredService<PharmacyAiService>());
+// ============================================================
+// Component C: Doctor Availability
+// ============================================================
 
-// Create the CORS policy
+builder.Services.AddScoped<
+    DoctorAvailabilityService>();
+
+
+// ============================================================
+// Component C: Appointment Scheduling
+// ============================================================
+
+builder.Services.AddScoped<
+    AppointmentService>();
+
+
+// ============================================================
+// Component C: Provider Adapters
+//
+// These registrations are required by the Action Agent tools.
+// The tools depend on the interfaces below instead of directly
+// calling protected controller endpoints.
+// ============================================================
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Abstractions.IAvailabilityProvider,
+    AvailabilityProviderAdapter>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Abstractions.IAppointmentProvider,
+    AppointmentProviderAdapter>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Abstractions.IAppointmentBookingProvider,
+    AppointmentBookingProviderAdapter>();
+
+
+// ============================================================
+// Component C: Appointment Action Agent
+//
+// Allow-listed tools used by the Action Agent.
+// ============================================================
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Tools.FindAvailableSlotsTool>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Tools.CheckBookingConflictTool>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Tools.CreateTentativeBookingTool>();
+
+builder.Services.AddScoped<
+    CareFlowAI.Orchestrator.Agents.AppointmentActionAgent>();
+
+builder.Services.AddScoped<
+    AppointmentWorkflowRunner>();
+
+
+// ============================================================
+// Component D: Third-Party Notifications & Pharmacy AI
+// ============================================================
+
+builder.Services.AddHttpClient<
+    INotificationService,
+    NotificationService>();
+
+builder.Services.AddScoped<
+    PharmacyAiService>();
+
+builder.Services.AddScoped<ISafetyAgent>(
+    sp =>
+        sp.GetRequiredService<PharmacyAiService>());
+
+
+// ============================================================
+// CORS
+// ============================================================
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
-        policy => policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
+    options.AddPolicy(
+        "AllowReactApp",
+        policy =>
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader());
 });
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+// ============================================================
+// HTTP Request Pipeline
+// ============================================================
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -169,7 +271,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// ACTIVATE the CORS policy
 app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
@@ -179,5 +280,6 @@ app.MapControllers();
 
 app.Run();
 
-// Required for WebApplicationFactory in integration tests
+
+// Required for WebApplicationFactory integration tests.
 public partial class Program { }
