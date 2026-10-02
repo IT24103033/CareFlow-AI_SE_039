@@ -43,6 +43,41 @@ jobs:
       - name: Build
         run: dotnet build backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --no-restore
 
+      - name: Create PostgreSQL test schema
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
+        run: |
+          mkdir -p /tmp/CareFlowDbInitializer
+          cd /tmp/CareFlowDbInitializer
+
+          dotnet new console --framework net8.0 --force
+
+          dotnet add reference "$GITHUB_WORKSPACE/backend-api/CareFlowAI.API.csproj"
+
+          cat > Program.cs <<'EOF'
+          using CareFlowAI.API.Data;
+          using Microsoft.EntityFrameworkCore;
+
+          var connectionString =
+              Environment.GetEnvironmentVariable(
+                  "ConnectionStrings__DefaultConnection");
+
+          var options =
+              new DbContextOptionsBuilder<ApplicationDbContext>()
+                  .UseNpgsql(connectionString)
+                  .Options;
+
+          await using var db =
+              new ApplicationDbContext(options);
+
+          await db.Database.EnsureCreatedAsync();
+
+          Console.WriteLine(
+              "PostgreSQL test schema created successfully.");
+          EOF
+
+          dotnet run
+
       - name: Run tests
         env:
           ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
