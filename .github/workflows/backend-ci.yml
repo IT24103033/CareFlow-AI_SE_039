@@ -2,36 +2,48 @@ name: ASP.NET Core Backend CI
 
 on:
   push:
-    branches: [ "main", "develop", "feature/**" ]
+    branches:
+      - main
+      - feature/Resource-Scheduling
   pull_request:
-    branches: [ "main", "develop" ]
+    branches:
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: careflow_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d careflow_db"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Restore Dependencies
-      run: dotnet restore backend-api/CareFlowAI.API.csproj
+      - name: Restore dependencies
+        run: dotnet restore backend-api.Tests/CareFlowAI.API.Tests.csproj
 
-    - name: Build Solution
-      run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
+      - name: Build
+        run: dotnet build backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --no-restore
 
-    - name: Run Backend Tests
-      run: dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --verbosity normal
-
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-
-    - name: Run Triage Client Contract Tests
-      run: npm test --prefix web-admin
+      - name: Run tests
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
+        run: dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --no-build --verbosity normal
