@@ -4,10 +4,12 @@ WORKDIR /src
 
 # Restore – done in a separate layer so restores are cached unless .csproj changes
 COPY backend-api/CareFlowAI.API.csproj backend-api/
+COPY ai-orchestrator/CareFlowAI.Orchestrator.csproj ai-orchestrator/
 RUN dotnet restore backend-api/CareFlowAI.API.csproj
 
 # Copy the rest of the source and publish
 COPY backend-api/ backend-api/
+COPY ai-orchestrator/ ai-orchestrator/
 WORKDIR /src/backend-api
 RUN dotnet publish CareFlowAI.API.csproj \
       --configuration Release \
