@@ -48,10 +48,11 @@ class TriageService {
 
     // 2. Submit triage data
     final headers = await _authHeaders();
-    final body = {
+    final body = <String, dynamic>{
       'patientId': patientId,
       'symptoms': symptoms,
-      if (attachmentId != null) 'attachmentId': attachmentId
+      // ignore: use_null_aware_elements
+      if (attachmentId != null) 'attachmentId': attachmentId,
     };
 
     final response = await http

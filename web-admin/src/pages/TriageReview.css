@@ -48,3 +48,11 @@
 .triage-execution { margin: 16px 0; font-size: 13px; overflow-wrap: anywhere; }
 .triage-execution summary { cursor: pointer; font-weight: 650; }
 .badge-AssessmentFailed { background: #fff0d9; color: #825200; }
+.badge-Pending { background: #f0f4f8; color: #4a5568; }
+.badge-Unassessed { background: #f0f4f8; color: #4a5568; }
+.badge-ReassessmentInProgress { background: #e8f0fc; color: #234f91; }
+.badge-unknown { background: #f0f4f8; color: #4a5568; }
+.triage-history { margin-top: 22px; border-top: 1px solid #dee6ed; padding-top: 16px; }
+.triage-history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.triage-history-item { border-left: 3px solid #cbd5e1; padding-left: 12px; }
+.triage-history-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }

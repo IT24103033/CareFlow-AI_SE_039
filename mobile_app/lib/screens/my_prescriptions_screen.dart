@@ -225,7 +225,7 @@ class _PrescriptionCardState extends State<_PrescriptionCard> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _cardBorder),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Column(
         children: [
@@ -241,7 +241,7 @@ class _PrescriptionCardState extends State<_PrescriptionCard> {
                   // Left icon
                   Container(
                     width: 44, height: 44,
-                    decoration: BoxDecoration(color: _purple.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: _purple.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
                     child: const Center(child: Text('💊', style: TextStyle(fontSize: 22))),
                   ),
                   const SizedBox(width: 14),
@@ -317,9 +317,9 @@ class _PrescriptionCardState extends State<_PrescriptionCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF52C41A).withOpacity(0.1),
+                        color: const Color(0xFF52C41A).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF52C41A).withOpacity(0.3)),
+                        border: Border.all(color: const Color(0xFF52C41A).withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         '✅ Notified via ${px.notificationChannel ?? "Email"}',
@@ -352,9 +352,9 @@ class _AiSafetyPanel extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,9 +442,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(label,
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
