@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import SidebarLayout from './components/SidebarLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
+import AdminPatients from './pages/AdminPatients';
 import ManagePatients from './pages/staff/ManagePatients';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
@@ -61,6 +62,8 @@ function App() {
             }
           >
             <Route index element={<AdminDashboard />} />
+            <Route path="patients" element={<AdminPatients />} />
+            <Route path="wards" element={<WardManagement />} />
           </Route>
 
           {/* Doctor Routes */}

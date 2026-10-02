@@ -3,6 +3,7 @@ using CloudinaryDotNet;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
 using CareFlowAI.Orchestrator;
+using CareFlowAI.Orchestrator.Tools;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -71,13 +72,12 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
 builder.Services.AddScoped<IClinicalAssessmentClient, GeminiAssessmentClient>();
 
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp => 
+builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.IDomainAnalysisAgent>(sp =>
 {
-    var tool = sp.GetRequiredService<IPatientContextTool>();
-    var adapter = new DomainContextWrapper(tool);
+    var tool = sp.GetRequiredService<IPatientHistoryTool>();
     return new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(
-        adapter,
         builder.Configuration["Gemini:ApiKey"] ?? string.Empty,
+        tool,
         builder.Configuration["Gemini:Model"] ?? string.Empty
     );
 });
@@ -128,8 +128,12 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IPatientHistoryTool, DbPatientHistoryTool>();
+
+// Component D: Third-Party SMS & Email Notification Service
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<PharmacyAiService>();
 
 // Component C: Doctor Availability Service
 builder.Services.AddScoped<DoctorAvailabilityService>();
@@ -166,8 +170,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
+else
+{
+    app.UseHttpsRedirection();
+}
 
 // ACTIVATE the CORS policy
 app.UseCors("AllowReactApp");
