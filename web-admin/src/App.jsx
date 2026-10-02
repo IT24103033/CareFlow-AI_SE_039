@@ -64,6 +64,8 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="patients" element={<AdminPatients />} />
             <Route path="wards" element={<WardManagement />} />
+            <Route path="patients" element={<AdminPatients />} />
+            <Route path="wards" element={<WardManagement />} />
           </Route>
 
           {/* Doctor Routes */}
