@@ -17,15 +17,18 @@ namespace CareFlowAI.API.Controllers
         private readonly PlanningAgentService _planningAgent;
         private readonly ISafetyAgent _safetyAgent;
         private readonly CloudinaryDotNet.Cloudinary? _cloudinary;
+        private readonly CareFlowAI.Orchestrator.Agents.AppointmentActionAgent _appointmentAgent;
 
         public TriageController(
             ApplicationDbContext context,
             PlanningAgentService planningAgent,
             IServiceProvider serviceProvider,
+            CareFlowAI.Orchestrator.Agents.AppointmentActionAgent appointmentAgent,
             ISafetyAgent? safetyAgent = null)
         {
             _context       = context;
             _planningAgent = planningAgent;
+            _appointmentAgent = appointmentAgent;
             _safetyAgent   = safetyAgent ?? new PharmacyAiService();
             _cloudinary    = serviceProvider.GetService<CloudinaryDotNet.Cloudinary>();
         }
@@ -101,11 +104,11 @@ namespace CareFlowAI.API.Controllers
             record.TriageStatus = plan == null ? "AssessmentFailed" : "InReview";
             record.SeverityLevel = plan?.UrgencyLevel ?? "Unassessed";
 
-            // 3. Integrate Component D SafetyAgent: execute B's proposed emergency-safety step
+            // 3. Integrate Component C ActionAgent and Component D SafetyAgent
             if (plan != null)
             {
-                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
-                _context.AgentWorkflows.Add(safetyWorkflowState);
+                await TriageOrchestrationHelper.ExecuteDownstreamActionsAsync(
+                    record, plan, _context, _safetyAgent, _appointmentAgent);
             }
 
             record.UpdatedAt = DateTime.UtcNow;
@@ -339,6 +342,20 @@ namespace CareFlowAI.API.Controllers
             };
             _context.TriageReviewHistories.Add(history);
 
+            if (record.TentativeAppointmentId.HasValue)
+            {
+                var appointmentService = HttpContext.RequestServices.GetRequiredService<AppointmentService>();
+                if (dto.Decision == "Approved")
+                {
+                    await appointmentService.ConfirmAsync(record.TentativeAppointmentId.Value);
+                }
+                else if (dto.Decision == "Rejected" || dto.Decision == "RevisionRequested")
+                {
+                    await appointmentService.CancelAsync(record.TentativeAppointmentId.Value);
+                    record.TentativeAppointmentId = null;
+                }
+            }
+
             try { await _context.SaveChangesAsync(); }
             catch (DbUpdateConcurrencyException)
             {
@@ -393,8 +410,8 @@ namespace CareFlowAI.API.Controllers
 
             if (plan != null)
             {
-                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
-                _context.AgentWorkflows.Add(safetyWorkflowState);
+                await TriageOrchestrationHelper.ExecuteDownstreamActionsAsync(
+                    record, plan, _context, _safetyAgent, _appointmentAgent);
             }
 
             await _context.SaveChangesAsync(CancellationToken.None);
@@ -440,8 +457,8 @@ namespace CareFlowAI.API.Controllers
 
             if (plan != null)
             {
-                var safetyWorkflowState = _safetyAgent.CheckEmergencyRules(record, plan);
-                _context.AgentWorkflows.Add(safetyWorkflowState);
+                await TriageOrchestrationHelper.ExecuteDownstreamActionsAsync(
+                    record, plan, _context, _safetyAgent, _appointmentAgent);
             }
 
             await _context.SaveChangesAsync(CancellationToken.None);
