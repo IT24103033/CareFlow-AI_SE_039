@@ -53,6 +53,7 @@ namespace CareFlowAI.AIOrchestrator
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var planningAgent = scope.ServiceProvider.GetRequiredService<PlanningAgentService>();
             var safetyAgent = scope.ServiceProvider.GetRequiredService<ISafetyAgent>();
+            var appointmentAgent = scope.ServiceProvider.GetRequiredService<CareFlowAI.Orchestrator.Agents.AppointmentActionAgent>();
 
             var threshold = DateTime.UtcNow.AddMinutes(-5);
 
@@ -107,8 +108,8 @@ namespace CareFlowAI.AIOrchestrator
                     
                     if (plan != null)
                     {
-                        var safetyWorkflowState = safetyAgent.CheckEmergencyRules(record, plan);
-                        context.AgentWorkflows.Add(safetyWorkflowState);
+                        await TriageOrchestrationHelper.ExecuteDownstreamActionsAsync(
+                            record, plan, context, safetyAgent, appointmentAgent);
                     }
                     record.UpdatedAt = DateTime.UtcNow;
                 }

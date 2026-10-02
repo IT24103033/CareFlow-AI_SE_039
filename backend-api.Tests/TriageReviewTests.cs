@@ -37,6 +37,7 @@ public class TriageReviewTests
                 new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy", "gemini-3.8-flash"),
                 new ConfigurationBuilder().Build()),
             new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(),
+            null!,
             new PharmacyAiService())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext

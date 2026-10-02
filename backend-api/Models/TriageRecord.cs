@@ -28,6 +28,9 @@ namespace CareFlowAI.API.Models
         /// </summary>
         public string SeverityLevel { get; set; } = "Medium";
 
+        /// <summary>Linked tentative appointment ID if the AI booked one.</summary>
+        public Guid? TentativeAppointmentId { get; set; }
+
         // ── Triage Lifecycle ─────────────────────────────────────────────────
         /// <summary>
         /// Workflow state: "Pending" | "InReview" | "Approved" | "Rejected" | "RevisionRequested" | "AssessmentFailed"

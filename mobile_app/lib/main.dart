@@ -1,33 +1,18 @@
-
 // CareFlow AI – Mobile App Entry Point
 // Component B: Medical Triage (Sujana – IT24103033)
 // Component D: Pharmacy Inventory (Amodhya – IT24102599)
 // Component C: Appointments & Resource Scheduling
-//
-// Auth gate: checks SecureStorage on startup.
-// → If PatientId exists → HomeScreen
-// → Otherwise → LoginScreen
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/LoginScreen.dart';
 import 'screens/home_screen.dart';
-import 'screens/my_prescriptions_screen.dart';
 import 'screens/appointment_availability_screen.dart';
+import 'screens/my_prescriptions_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
-  );
-
   runApp(const CareFlowApp());
 }
 
@@ -39,30 +24,20 @@ class CareFlowApp extends StatelessWidget {
     return MaterialApp(
       title: 'CareFlow AI',
       debugShowCheckedModeBanner: false,
-
-      // Use the shared application theme
       theme: AppTheme.theme,
-
-      // Auth gate
-      // Checks whether the patient is already logged in.
       home: const _AuthGate(),
-
-      // Application routes
       routes: {
-        '/prescriptions': (context) =>
-            const MyPrescriptionsScreen(),
-
-        // Component C: Appointment Availability
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
         '/appointments': (context) =>
             const AppointmentAvailabilityScreen(),
+        '/prescriptions': (context) =>
+            const MyPrescriptionsScreen(),
       },
     );
   }
 }
 
-// ── Auth Gate ─────────────────────────────────────────────────────────────────
-// Checks SecureStorage for a saved PatientId.
-// Shows a branded splash, then routes to Home or Login.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -71,84 +46,40 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
+  bool _loading = true;
+  bool _loggedIn = false;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _checkLogin();
   }
 
-  Future<void> _checkAuth() async {
+  Future<void> _checkLogin() async {
     final loggedIn = await AuthService.isLoggedIn();
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            loggedIn ? const HomeScreen() : const LoginScreen(),
-      ),
-    );
+    setState(() {
+      _loggedIn = loggedIn;
+      _loading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.navyDark,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.teal,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            const Text(
-              'CareFlow AI',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            const Text(
-              'SMART DIGITAL HOSPITAL',
-              style: TextStyle(
-                color: AppTheme.teal,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 2,
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                color: AppTheme.teal,
-                strokeWidth: 2.5,
-              ),
-            ),
-          ],
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
         ),
-      ),
-    );
+      );
+    }
+
+    if (_loggedIn) {
+      return const HomeScreen();
+    }
+
+    return const LoginScreen();
   }
 }
-
