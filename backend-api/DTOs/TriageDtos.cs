@@ -67,6 +67,7 @@ namespace CareFlowAI.API.DTOs
         /// <summary>Which analysis path was used: RuleEngine | GeminiAI | FallbackRules</summary>
         public PlanningExecutionSummary? PlanningExecution { get; set; }
         public string? AnalysisMethod   { get; set; }
+        public Guid? TentativeAppointmentId { get; set; }
         public List<TriageReviewHistoryDto> ReviewHistories { get; set; } = new();
     }
 

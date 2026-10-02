@@ -2,10 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/PatientProfile.dart';
 import '../models/Ward.dart';
+import 'auth_service.dart';
 
 class ApiService {
   // Use localhost for Chrome/Edge web target
   static const String baseUrl = 'http://localhost:5241/api';
+
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await AuthService.getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Login: searches for a patient by full name as their identifier
   Future<PatientProfile?> loginPatient(String fullName) async {
@@ -78,7 +87,7 @@ class ApiService {
         queryParameters: queryParameters,
       );
 
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: await _authHeaders());
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as List<dynamic>;
@@ -113,7 +122,7 @@ class ApiService {
         },
       );
 
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: await _authHeaders());
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as List<dynamic>;
@@ -141,9 +150,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/Appointments/tentative'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await _authHeaders(),
         body: json.encode({
           'doctorId': doctorId,
           'patientId': patientId,

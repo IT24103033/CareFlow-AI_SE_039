@@ -75,7 +75,14 @@ export default function TriageReview({ api }) {
         </footer>}
       </section>
       {selected ? <CaseDetail key={selected} id={selected} api={activeApi} onDecision={decision => {
-        setNotice(`${label(decision)} recorded. This decision does not confirm an appointment.`); reload();
+        setNotice(
+          decision === 'Approved'
+            ? `Approved. The tentative appointment has been confirmed.`
+            : decision === 'Rejected'
+            ? `Rejected. The tentative appointment has been cancelled.`
+            : `${label(decision)} recorded.`
+        );
+        reload();
       }} /> : <section className="triage-panel triage-empty"><h2>Select a submission</h2><p>Patient details, the AI assessment and review actions will appear here.</p></section>}
     </div>
   </main>;
@@ -132,6 +139,13 @@ function CaseDetail({ id, api, onDecision }) {
         <div style={{ marginTop: '12px', marginBottom: '20px' }}>
           <h4>Attached Image</h4>
           <img src={record.imageUrl} alt="Triage attachment" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid var(--border)' }} />
+        </div>
+      )}
+      {record.tentativeAppointmentId && (
+        <div className="triage-appointment-notice">
+          <strong>🗓 AI-booked tentative appointment:</strong>{' '}
+          <span>Appointment ID: <code>{record.tentativeAppointmentId}</code></span>
+          <p className="triage-muted">This slot is held pending your approval. Approving this case will confirm the appointment; rejecting will cancel it.</p>
         </div>
       )}
       <h3>AI assessment</h3>

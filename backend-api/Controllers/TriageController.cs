@@ -512,6 +512,7 @@ namespace CareFlowAI.API.Controllers
                 ApprovalStatus   = agent?.ApprovalStatus,
                 AnalysisMethod   = TriageReviewRules.ReadPlan(agent?.OutputPayload)?.AnalysisMethod,
                 PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload),
+                TentativeAppointmentId = record.TentativeAppointmentId,
                 ReviewHistories  = record.ReviewHistories?.OrderByDescending(h => h.CreatedAt).Select(h => new TriageReviewHistoryDto
                 {
                     Id = h.Id,
