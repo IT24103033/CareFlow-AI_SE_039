@@ -1,10 +1,13 @@
 // Component D: Pharmacy Inventory & E-Prescriptions
 // Patient-facing screen showing their e-prescriptions with AI safety status.
+// Added: Pickup QR codes + Medication readiness notifications (Amodhya)
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../models/prescription_model.dart';
 import '../services/prescription_service.dart';
+import '../services/medication_notification_service.dart';
 
 // ── Colour & style constants ─────────────────────────────────────────────────
 const _purple      = Color(0xFF6C63FF);
@@ -211,6 +214,36 @@ class _PrescriptionCard extends StatefulWidget {
 class _PrescriptionCardState extends State<_PrescriptionCard> {
   bool _expanded = false;
 
+  // ── QR pickup sheet ──────────────────────────────────────────────────────
+  void _showPickupQr(BuildContext context, Prescription px) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _PickupQrSheet(prescription: px),
+    );
+  }
+
+  // ── Medication readiness notification ────────────────────────────────────
+  Future<void> _sendReadyNotification(Prescription px) async {
+    final summary = px.items
+        .map((i) => '${i.medicineName} ×${i.quantity}')
+        .join(', ');
+    await MedicationNotificationService.instance.notifyMedicationReady(
+      prescriptionId: px.id,
+      medicineSummary: summary,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔔 Medication readiness notification sent!'),
+          backgroundColor: Color(0xFF6C63FF),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final px = widget.prescription;
@@ -272,6 +305,28 @@ class _PrescriptionCardState extends State<_PrescriptionCard> {
                       ],
                     ),
                   ),
+                  // QR pickup button (only for Issued prescriptions)
+                  if (px.status == 'Issued') ...[
+                    IconButton(
+                      tooltip: 'Show pickup QR code',
+                      icon: const Icon(Icons.qr_code_2_rounded, color: _purple),
+                      onPressed: () => _showPickupQr(context, px),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Notification bell (only for Issued prescriptions)
+                  if (px.status == 'Issued')
+                    IconButton(
+                      tooltip: 'Send medication ready notification',
+                      icon: const Icon(Icons.notifications_active_rounded,
+                          color: Color(0xFFFA8C16)),
+                      onPressed: () => _sendReadyNotification(px),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  const SizedBox(width: 4),
                   // Expand chevron
                   Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: Colors.white38),
                 ],
@@ -448,6 +503,129 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(label,
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+    );
+  }
+}
+
+// ── Pickup QR Sheet ───────────────────────────────────────────────────────────
+/// Bottom sheet that displays a QR code the pharmacist scans at dispensing.
+/// QR data encodes: prescriptionId | patientId | itemCount | issuedDate
+class _PickupQrSheet extends StatelessWidget {
+  final Prescription prescription;
+  const _PickupQrSheet({required this.prescription});
+
+  String get _qrData {
+    final px = prescription;
+    return 'cf-rx:${px.id}|patient:${px.patientId}|items:${px.items.length}|status:${px.status}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const purple = Color(0xFF6C63FF);
+    const darkBg = Color(0xFF1A1A2E);
+    const cardBg = Color(0xFF16213E);
+
+    final summaryLines = prescription.items
+        .map((i) => '${i.medicineName}  ×${i.quantity}  (${i.dosage})')
+        .toList();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          const Text(
+            '📦 Pharmacy Pickup QR',
+            style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Show this QR code to the pharmacist to collect your medication.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+
+          // QR code
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: QrImageView(
+              data: _qrData,
+              version: QrVersions.auto,
+              size: 220,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Color(0xFF1A1A2E),
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.circle,
+                color: Color(0xFF6C63FF),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Prescription summary under QR
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: darkBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: purple.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${prescription.items.length} medicine${prescription.items.length != 1 ? "s" : ""}',
+                  style: const TextStyle(
+                      color: purple, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                ...summaryLines.map(
+                  (l) => Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text('• $l',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(foregroundColor: Colors.white54),
+              child: const Text('Close'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
