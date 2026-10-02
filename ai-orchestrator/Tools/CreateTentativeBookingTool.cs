@@ -1,20 +1,23 @@
-using System.Net.Http.Json;
+using System.Text.Json;
+using CareFlowAI.Orchestrator.Abstractions;
+using CareFlowAI.Orchestrator.Models;
 
 namespace CareFlowAI.Orchestrator.Tools
 {
     public class CreateTentativeBookingTool
     {
-        private readonly HttpClient _httpClient;
+        private readonly IAppointmentBookingProvider _bookingProvider;
 
-        public CreateTentativeBookingTool(HttpClient httpClient)
+        public CreateTentativeBookingTool(
+            IAppointmentBookingProvider bookingProvider)
         {
-            _httpClient = httpClient;
+            _bookingProvider = bookingProvider;
         }
 
         // Allow-listed tool:
         // Creates a tentative appointment after
         // availability and conflict checks.
-        public async Task<string> ExecuteAsync(
+        public async Task<AppointmentActionResult> ExecuteAsync(
             Guid doctorId,
             Guid patientId,
             DateOnly appointmentDate,
@@ -23,51 +26,67 @@ namespace CareFlowAI.Orchestrator.Tools
         {
             try
             {
-                var request = new
+                var bookingResult =
+                    await _bookingProvider.CreateTentativeAsync(
+                        doctorId,
+                        patientId,
+                        appointmentDate,
+                        startTime,
+                        endTime);
+
+                // The provider currently returns the appointment ID
+                // as a string. Preserve that durable identifier.
+                if (Guid.TryParse(bookingResult, out var appointmentId))
                 {
-                    doctorId = doctorId,
-                    patientId = patientId,
-                    appointmentDate = appointmentDate,
-                    startTime = startTime,
-                    endTime = endTime
-                };
-
-                var response = await _httpClient.PostAsJsonAsync(
-                    "http://localhost:5241/api/Appointments/tentative",
-                    request);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var result =
-                        await response.Content.ReadAsStringAsync();
-
-                    return result;
+                    return AppointmentActionResult.Success(
+                        "Tentative appointment created successfully.",
+                        appointmentId);
                 }
 
-                if ((int)response.StatusCode == 409)
+                // If the provider returns a JSON object containing
+                // an appointment ID, try to extract it.
+                try
                 {
-                    return "The selected appointment time is already booked.";
+                    using var document =
+                        JsonDocument.Parse(bookingResult);
+
+                    if (document.RootElement.TryGetProperty(
+                            "appointmentId",
+                            out var appointmentIdElement) &&
+                        Guid.TryParse(
+                            appointmentIdElement.GetString(),
+                            out var parsedAppointmentId))
+                    {
+                        return AppointmentActionResult.Success(
+                            "Tentative appointment created successfully.",
+                            parsedAppointmentId);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // The provider returned a non-JSON result.
                 }
 
-                if ((int)response.StatusCode == 404)
+                // Keep the provider response as the message if it
+                // does not contain a recognizable appointment ID.
+                if (!string.IsNullOrWhiteSpace(bookingResult))
                 {
-                    return "The selected doctor or patient could not be found.";
+                    return AppointmentActionResult.Success(
+                        bookingResult);
                 }
 
-                if ((int)response.StatusCode == 400)
-                {
-                    return "The appointment details are invalid.";
-                }
-
-                return "Unable to create the tentative appointment.";
+                return AppointmentActionResult.ProviderError(
+                    "The tentative booking was created, but no appointment identifier was returned.");
             }
-            catch (HttpRequestException)
+            catch (ArgumentException ex)
             {
-                return "Unable to connect to the CareFlow API.";
+                return AppointmentActionResult.InvalidRequest(
+                    $"Invalid booking request: {ex.Message}");
             }
             catch (Exception)
             {
-                return "An unexpected error occurred while creating the tentative booking.";
+                return AppointmentActionResult.ProviderError(
+                    "An unexpected error occurred while creating the tentative booking.");
             }
         }
     }

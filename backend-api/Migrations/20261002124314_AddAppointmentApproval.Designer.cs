@@ -3,6 +3,7 @@ using System;
 using CareFlowAI.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CareFlowAI.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002124314_AddAppointmentApproval")]
+    partial class AddAppointmentApproval
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -319,7 +322,7 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555551"),
                             BloodGroup = "O+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6910),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9270),
                             DateOfBirth = new DateOnly(1985, 3, 12),
                             FullName = "Sarah Jenkins",
                             MedicalHistorySummary = "No known allergies. Previous appendectomy."
@@ -328,7 +331,7 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555552"),
                             BloodGroup = "A-",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6930),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9280),
                             DateOfBirth = new DateOnly(1972, 11, 5),
                             FullName = "Marcus Thorne",
                             MedicalHistorySummary = "Type 2 Diabetes, Hypertension."
@@ -337,7 +340,7 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555553"),
                             BloodGroup = "B+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6930),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9290),
                             DateOfBirth = new DateOnly(1990, 7, 22),
                             FullName = "Emily Chen",
                             MedicalHistorySummary = "Asthma, treated with inhalers."
@@ -346,7 +349,7 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555554"),
                             BloodGroup = "O-",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6940),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9290),
                             DateOfBirth = new DateOnly(1950, 1, 30),
                             FullName = "David Alaba",
                             MedicalHistorySummary = "Coronary artery disease, pacemaker fitted 2018."
@@ -355,7 +358,7 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             BloodGroup = "AB+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6950),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9300),
                             DateOfBirth = new DateOnly(2005, 9, 14),
                             FullName = "Fiona Gallagher",
                             MedicalHistorySummary = "None."
@@ -515,9 +518,6 @@ namespace CareFlowAI.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("TentativeAppointmentId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("TriageStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -618,7 +618,7 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6800),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9210),
                             Email = "admin@careflow.ai",
                             Password = "password",
                             Role = "Admin",
@@ -627,7 +627,7 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6810),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9220),
                             DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
                             Email = "doctor@careflow.ai",
                             Password = "password",
@@ -637,7 +637,7 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6820),
+                            CreatedAt = new DateTime(2026, 9, 30, 9, 45, 10, 225, DateTimeKind.Utc).AddTicks(9220),
                             Email = "staff@careflow.ai",
                             Password = "password",
                             Role = "Staff",
