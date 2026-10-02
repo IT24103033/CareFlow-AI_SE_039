@@ -50,5 +50,57 @@ namespace CareFlowAI.API.Controllers
 
             return Ok(patients);
         }
+
+        [HttpGet("{id:guid}")]
+        public async Task<IActionResult> GetPatient(Guid id)
+        {
+            var patient = await _context.PatientProfiles.FindAsync(id);
+            if (patient == null)
+                return NotFound("Patient not found.");
+
+            return Ok(patient);
+        }
+
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> UpdatePatient(Guid id, [FromBody] PatientProfileUpdateDto dto)
+        {
+            var patient = await _context.PatientProfiles.FindAsync(id);
+            if (patient == null)
+                return NotFound("Patient not found.");
+
+            if (dto.DateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
+                return BadRequest("Date of birth cannot be in the future.");
+
+            patient.FullName = dto.FullName.Trim();
+            patient.DateOfBirth = dto.DateOfBirth;
+            patient.BloodGroup = dto.BloodGroup.Trim();
+            patient.MedicalHistorySummary = (dto.MedicalHistorySummary ?? string.Empty).Trim();
+
+            await _context.SaveChangesAsync();
+            return Ok(patient);
+        }
+
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> DeletePatient(Guid id)
+        {
+            var patient = await _context.PatientProfiles
+                .Include(p => p.Admissions)
+                    .ThenInclude(a => a.Ward)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (patient == null)
+                return NotFound("Patient not found.");
+
+            foreach (var admission in patient.Admissions)
+            {
+                if (admission.DischargedAt == null && admission.Ward != null && admission.Ward.OccupiedBeds > 0)
+                    admission.Ward.OccupiedBeds--;
+            }
+
+            _context.Admissions.RemoveRange(patient.Admissions);
+            _context.PatientProfiles.Remove(patient);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

@@ -1,4 +1,6 @@
 using CareFlowAI.API.Data;
+using CareFlowAI.API.Services;
+using CareFlowAI.Orchestrator.Tools;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +12,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IPatientHistoryTool, DbPatientHistoryTool>();
 
 // 1. Create the CORS policy
 builder.Services.AddCors(options =>
@@ -28,8 +31,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
+else
+{
+    app.UseHttpsRedirection();
+}
 
 // 2. ACTIVATE the CORS policy (This was the missing piece!)
 app.UseCors("AllowReactApp");

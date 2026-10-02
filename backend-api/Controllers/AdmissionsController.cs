@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Models;
+using CareFlowAI.Orchestrator.Agents;
+using CareFlowAI.Orchestrator.Tools;
 
 namespace CareFlowAI.API.Controllers
 {
@@ -12,11 +14,16 @@ namespace CareFlowAI.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IPatientHistoryTool _patientHistoryTool;
 
-        public AdmissionsController(ApplicationDbContext context,IConfiguration configuration)
+        public AdmissionsController(
+            ApplicationDbContext context,
+            IConfiguration configuration,
+            IPatientHistoryTool patientHistoryTool)
         {
             _context = context;
             _configuration = configuration;
+            _patientHistoryTool = patientHistoryTool;
         }
 
         // POST: api/admissions/allocate-ward
@@ -62,10 +69,11 @@ namespace CareFlowAI.API.Controllers
         public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request)
         {
             // Read the secure key from appsettings
-            string apiKey = _configuration["GeminiApiKey"];
-            
-            // Pass the key into the agent
-            var agent = new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(apiKey);
+            string apiKey = _configuration["Gemini:ApiKey"]
+                ?? _configuration["GeminiApiKey"]
+                ?? string.Empty;
+            string model = _configuration["Gemini:Model"] ?? "gemini-flash-latest";
+            var agent = new DomainAnalysisAgent(apiKey, _patientHistoryTool, model);
             
             var analysisResult = await agent.AnalyzeRiskAsync(request);
             return Ok(analysisResult);

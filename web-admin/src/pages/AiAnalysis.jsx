@@ -58,6 +58,9 @@ const AiAnalysis = () => {
                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
                         {analysis.flaggedFactors.map((factor, i) => <li key={i}>{factor}</li>)}
                     </ul>
+                    {analysis.patientHistoryUsed && (
+                        <p style={{ whiteSpace: 'pre-wrap' }}><strong>History used:</strong><br />{analysis.patientHistoryUsed}</p>
+                    )}
                 </div>
             )}
         </div>

@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import ManagePatients from './pages/staff/ManagePatients';
 import WardManagement from './pages/WardManagement';
+import AdminPatients from './pages/AdminPatients';
 // Retain old pages just in case, but they are not used in new flow
 import AiAnalysis from './pages/AiAnalysis';
 import PatientHistorySearch from './pages/PatientHistorySearch';
@@ -26,7 +27,8 @@ const staffLinks = [
 
 const adminLinks = [
   { path: '/admin', label: 'Dashboard', icon: '📊' },
-  // ...other admin links
+  { path: '/admin/patients', label: 'Patient records', icon: '👤' },
+  { path: '/admin/wards', label: 'Wards', icon: '🛏️' }
 ];
 
 const doctorLinks = [
@@ -48,6 +50,8 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="patients" element={<AdminPatients />} />
+            <Route path="wards" element={<WardManagement />} />
           </Route>
 
           {/* Doctor Routes */}

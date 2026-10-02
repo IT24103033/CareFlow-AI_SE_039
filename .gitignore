@@ -1,5 +1,7 @@
 # Environments
 .env
+.env.local
+.env.*.local
 appsettings.Development.json
 
 # Node / React
