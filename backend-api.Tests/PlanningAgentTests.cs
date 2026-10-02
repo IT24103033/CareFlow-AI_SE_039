@@ -226,7 +226,7 @@ public class PlanningAgentTests
             return new PatientContextSnapshot(id, "History", "O+", new DateOnly(1980, 1, 1));
         });
         var planner = new PlanningAgentService(context, new ClientStub((_, _) => Task.FromResult("{}")), Domain(), Config());
-        var controller = new TriageController(db, planner, new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider());
+        var controller = new TriageController(db, planner, new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(), null!);
         var result = Assert.IsType<CreatedAtActionResult>(await controller.Submit(new() { PatientId = patient.Id, Symptoms = Symptoms }));
         var dto = Assert.IsType<TriageResponseDto>(result.Value);
         Assert.Equal("AssessmentFailed", dto.TriageStatus);
@@ -244,7 +244,7 @@ public class PlanningAgentTests
         var patient = new PatientProfile(); db.Add(patient); await db.SaveChangesAsync();
         using var source = new CancellationTokenSource();
         var client = new ClientStub((_, token) => { source.Cancel(); token.ThrowIfCancellationRequested(); return Task.FromResult(Assessment); });
-        var controller = new TriageController(db, new PlanningAgentService(Context(), client, Domain(), Config()), new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider());
+        var controller = new TriageController(db, new PlanningAgentService(Context(), client, Domain(), Config()), new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(), null!);
         await controller.Submit(new() { PatientId = patient.Id, Symptoms = Symptoms }, source.Token);
         using var reader = new ApplicationDbContext(options);
         Assert.Equal("CANCELLED", (await reader.AgentWorkflows.SingleAsync()).ErrorMessage);
@@ -298,7 +298,7 @@ public class PlanningAgentTests
         await db.SaveChangesAsync();
 
         var planner = new PlanningAgentService(Context(), new ClientStub((_, _) => Task.FromResult("{}")), Domain(), Config());
-        var controller = new TriageController(db, planner, new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider());
+        var controller = new TriageController(db, planner, new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(), null!);
         
         var claims = new List<Claim> { new Claim(ClaimTypes.Role, "Patient"), new Claim("patient_id", patient.Id.ToString()) };
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test")) } };

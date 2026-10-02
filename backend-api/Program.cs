@@ -73,7 +73,9 @@ builder.Services.AddSwaggerGen(c =>
 // Component B: Patient Context, Assessment & Planning
 // ============================================================
 
-builder.Services.AddScoped<IPatientContextTool, PatientContextTool>();
+builder.Services.AddScoped<
+    IPatientContextTool,
+    PatientContextTool>();
 
 builder.Services.AddScoped<
     IClinicalAssessmentClient,
@@ -97,7 +99,8 @@ builder.Services.AddScoped<
     );
 });
 
-builder.Services.AddScoped<PlanningAgentService>();
+builder.Services.AddScoped<
+    PlanningAgentService>();
 
 builder.Services.AddHostedService<
     CareFlowAI.AIOrchestrator.WorkflowManager>();
@@ -186,8 +189,8 @@ builder.Services.AddScoped<
 // Component C: Provider Adapters
 //
 // These registrations are required by the Action Agent tools.
-// The tools depend on the interfaces below instead of directly
-// calling protected controller endpoints.
+// The tools depend on interfaces instead of directly calling
+// protected controller endpoints.
 // ============================================================
 
 builder.Services.AddScoped<
