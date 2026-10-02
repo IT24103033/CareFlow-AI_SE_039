@@ -138,9 +138,9 @@ builder.Services.AddScoped<DoctorAvailabilityService>();
 builder.Services.AddScoped<AppointmentService>();
 
 // Component C: Appointment Action Agent tools (allow-listed tool set)
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.FindAvailableSlotsTool>();
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CheckBookingConflictTool>();
-builder.Services.AddScoped<CareFlowAI.Orchestrator.Tools.CreateTentativeBookingTool>();
+builder.Services.AddHttpClient<CareFlowAI.Orchestrator.Tools.FindAvailableSlotsTool>();
+builder.Services.AddHttpClient<CareFlowAI.Orchestrator.Tools.CheckBookingConflictTool>();
+builder.Services.AddHttpClient<CareFlowAI.Orchestrator.Tools.CreateTentativeBookingTool>();
 builder.Services.AddScoped<CareFlowAI.Orchestrator.Agents.AppointmentActionAgent>();
 builder.Services.AddScoped<AppointmentWorkflowRunner>();
 

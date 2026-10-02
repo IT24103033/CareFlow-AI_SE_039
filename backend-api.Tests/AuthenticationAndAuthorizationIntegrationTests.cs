@@ -79,10 +79,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Replace notification service stub
             var notifDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationService));
             if (notifDescriptor != null) services.Remove(notifDescriptor);
-            // Also remove IHttpClientFactory and TypedHttpClient registrations for NotificationService
+            // Also remove TypedHttpClient registrations for NotificationService
             var httpClientDescriptors = services
-                .Where(d => d.ServiceType.Name.Contains("IHttpClientFactory") ||
-                            (d.ImplementationType == typeof(NotificationService)))
+                .Where(d => d.ImplementationType == typeof(NotificationService))
                 .ToList();
             foreach (var d in httpClientDescriptors) services.Remove(d);
             services.AddScoped<INotificationService, TestNotificationService>();
