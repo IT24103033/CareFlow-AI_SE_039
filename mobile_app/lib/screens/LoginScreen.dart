@@ -106,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.health_and_safety_rounded,
-                      size: 90, color: _primaryTeal.withOpacity(0.6)),
+                      size: 90, color: _primaryTeal.withValues(alpha: 0.6)),
                 ),
               ),
 
@@ -128,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   border: Border.all(color: const Color(0xFFE0E0E0)),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 8,
                         offset: const Offset(0, 2))
                   ],

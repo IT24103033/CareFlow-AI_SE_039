@@ -127,20 +127,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                _sectionLabel('COMING SOON'),
+                _sectionLabel('APPOINTMENTS'),
                 const SizedBox(height: 12),
                 _MenuCard(
                   icon: Icons.calendar_month_outlined,
                   iconColor: const Color(0xFFD69E2E),
                   title: 'My Appointments',
-                  subtitle: 'Upcoming appointments — Component C',
-                  badge: 'Soon',
-                  onTap: () =>
-                      ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Appointments feature coming soon!')),
-                  ),
+                  subtitle: 'Check doctor availability & book a slot',
+                  onTap: () => Navigator.pushNamed(context, '/appointments'),
                 ),
               ]),
             ),
@@ -289,15 +283,12 @@ class _MenuCard extends StatelessWidget {
   final String       title;
   final String       subtitle;
   final VoidCallback onTap;
-  final String?      badge;
-
   const _MenuCard({
     required this.icon,
     required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.badge,
   });
 
   @override
@@ -340,23 +331,6 @@ class _MenuCard extends StatelessWidget {
                                 color: AppTheme.textDark,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600)),
-                        if (badge != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.pending
-                                  .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(badge!,
-                                style: const TextStyle(
-                                    color: AppTheme.pending,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
