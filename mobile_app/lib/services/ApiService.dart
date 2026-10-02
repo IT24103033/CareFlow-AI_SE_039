@@ -4,21 +4,26 @@ import '../models/PatientProfile.dart';
 import '../models/Ward.dart';
 
 class ApiService {
-  // Use 10.0.2.2 for Android Emulator, localhost for Chrome web target
-  static const String baseUrl = 'http://10.0.2.2:5241/api';
+  // Use localhost for Chrome/Edge web target
+  static const String baseUrl = 'http://localhost:5241/api';
 
   /// Login: searches for a patient by full name as their identifier
   Future<PatientProfile?> loginPatient(String fullName) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/PatientProfiles/search?name=${Uri.encodeComponent(fullName)}'),
+        Uri.parse(
+          '$baseUrl/PatientProfiles/search?name=${Uri.encodeComponent(fullName)}',
+        ),
       );
+
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
+
         if (data.isNotEmpty) {
           return PatientProfile.fromJson(data[0]);
         }
       }
+
       return null;
     } catch (e) {
       throw Exception('Failed to connect to the API: $e');
@@ -31,14 +36,136 @@ class ApiService {
 
   Future<List<Ward>> fetchWards() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/Wards'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/Wards'),
+      );
+
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
+
         return data.map((json) => Ward.fromJson(json)).toList();
       }
+
       return [];
     } catch (e) {
       throw Exception('Failed to load wards: $e');
+    }
+  }
+
+  // ---------------------------------------------------------
+  // COMPONENT C - APPOINTMENTS & RESOURCE SCHEDULING
+  // ---------------------------------------------------------
+
+  /// Search doctors and their available schedules.
+  Future<List<dynamic>> searchDoctorAvailability({
+    String? specialization,
+    String? date,
+  }) async {
+    try {
+      final queryParameters = <String, String>{};
+
+      if (specialization != null && specialization.isNotEmpty) {
+        queryParameters['specialization'] = specialization;
+      }
+
+      if (date != null && date.isNotEmpty) {
+        queryParameters['date'] = date;
+      }
+
+      final uri = Uri.parse(
+        '$baseUrl/DoctorAvailability/search',
+      ).replace(
+        queryParameters: queryParameters,
+      );
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as List<dynamic>;
+      }
+
+      throw Exception(
+        'Failed to search doctor availability '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to search doctor availability: $e',
+      );
+    }
+  }
+
+  /// Get available slots for a specific doctor on a specific date.
+  Future<List<dynamic>> fetchAvailableSlots({
+    required String doctorId,
+    required String date,
+    int slotDurationMinutes = 30,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/DoctorAvailability/slots',
+      ).replace(
+        queryParameters: {
+          'doctorId': doctorId,
+          'date': date,
+          'slotDurationMinutes':
+              slotDurationMinutes.toString(),
+        },
+      );
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as List<dynamic>;
+      }
+
+      throw Exception(
+        'Failed to load available slots '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to load available slots: $e',
+      );
+    }
+  }
+
+  /// Create a tentative appointment.
+  Future<bool> createTentativeAppointment({
+    required String doctorId,
+    required String patientId,
+    required String appointmentDate,
+    required String startTime,
+    required String endTime,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/Appointments/tentative'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'doctorId': doctorId,
+          'patientId': patientId,
+          'appointmentDate': appointmentDate,
+          'startTime': startTime,
+          'endTime': endTime,
+        }),
+      );
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201) {
+        return true;
+      }
+
+      throw Exception(
+        'Failed to create appointment '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to create appointment: $e',
+      );
     }
   }
 }
