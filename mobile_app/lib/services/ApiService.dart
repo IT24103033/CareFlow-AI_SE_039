@@ -175,4 +175,27 @@ class ApiService {
       );
     }
   }
+
+  /// Get all appointments for a patient.
+  Future<List<dynamic>> getPatientAppointments(String patientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Appointments/patient/$patientId'),
+        headers: await _authHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as List<dynamic>;
+      }
+
+      throw Exception(
+        'Failed to load appointments '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to load appointments: $e',
+      );
+    }
+  }
 }

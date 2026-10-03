@@ -230,11 +230,38 @@ namespace CareFlowAI.API.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Seed Doctor
+            // Seed Doctors
             var defaultDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222220");
+            var neuroDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222221");
+            var cardioDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222223");
+            var pulmonDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222224");
+
             modelBuilder.Entity<Doctor>().HasData(
-                new Doctor { Id = defaultDoctorId, FullName = "Dr. Robert Smith", Specialization = "General Practitioner", Email = "doctor@careflow.ai", IsActive = true }
+                new Doctor { Id = defaultDoctorId, FullName = "Dr. Robert Smith", Specialization = "General Practitioner", Email = "doctor@careflow.ai", IsActive = true },
+                new Doctor { Id = neuroDoctorId, FullName = "Dr. Alice Wong", Specialization = "Neurologist", Email = "neuro@careflow.ai", IsActive = true },
+                new Doctor { Id = cardioDoctorId, FullName = "Dr. James Bond", Specialization = "Cardiologist", Email = "cardio@careflow.ai", IsActive = true },
+                new Doctor { Id = pulmonDoctorId, FullName = "Dr. Sarah Connor", Specialization = "Pulmonologist", Email = "pulmon@careflow.ai", IsActive = true }
             );
+
+            // Seed Availabilities dynamically for the next 7 days for these doctors
+            var availabilities = new List<DoctorAvailability>();
+            var startDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            int availId = 1;
+            foreach (var docId in new[] { defaultDoctorId, neuroDoctorId, cardioDoctorId, pulmonDoctorId })
+            {
+                for (int i = 1; i <= 7; i++)
+                {
+                    availabilities.Add(new DoctorAvailability
+                    {
+                        Id = Guid.NewGuid(),
+                        DoctorId = docId,
+                        Date = startDate.AddDays(i),
+                        StartTime = new TimeOnly(10, 0),
+                        EndTime = new TimeOnly(10, 30)
+                    });
+                }
+            }
+            modelBuilder.Entity<DoctorAvailability>().HasData(availabilities);
 
             // Seed Users
             modelBuilder.Entity<User>().HasData(

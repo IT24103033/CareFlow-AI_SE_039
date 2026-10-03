@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/ApiService.dart';
+import '../services/auth_service.dart';
 import '../models/PatientProfile.dart';
 import 'PatientHomeScreen.dart';
 
@@ -11,16 +12,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
   final _primaryTeal = const Color(0xFF0AB39C);
 
   Future<void> _handleLogin() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your full name');
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter both username and password');
       return;
     }
 
@@ -30,8 +34,12 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final loginResult = await AuthService.login(username: username, password: password);
+      
+      final fullName = loginResult['user']['fullName'] ?? loginResult['user']['username'];
+      
       final api = ApiService();
-      final PatientProfile? patient = await api.loginPatient(name);
+      final PatientProfile? patient = await api.loginPatient(fullName);
 
       if (!mounted) return;
 
@@ -43,14 +51,14 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = 'No patient found with that name.\nPlease contact the hospital reception.';
+          _errorMessage = 'No patient profile found for this user.\nPlease contact the hospital reception.';
           _isLoading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Connection error. Please try again.';
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
         _isLoading = false;
       });
     }
@@ -94,33 +102,33 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 40),
 
               // Illustration placeholder
               Center(
                 child: Container(
-                  width: 180,
-                  height: 180,
+                  width: 160,
+                  height: 160,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.health_and_safety_rounded,
-                      size: 90, color: _primaryTeal.withValues(alpha: 0.6)),
+                      size: 80, color: _primaryTeal.withValues(alpha: 0.6)),
                 ),
               ),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
 
               const Text('Welcome Back',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF212529))),
               const SizedBox(height: 6),
-              const Text('Enter your full name to access your medical profile.',
+              const Text('Sign in to access your medical profile.',
                   style: TextStyle(fontSize: 14, color: Colors.black54)),
 
               const SizedBox(height: 32),
 
-              // Name input
+              // Username input
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -134,15 +142,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: TextField(
-                  controller: _nameController,
+                  controller: _usernameController,
                   decoration: const InputDecoration(
-                    hintText: 'Full Name (e.g., Sarah Jenkins)',
+                    hintText: 'Username or Email',
                     hintStyle: TextStyle(color: Colors.black38),
                     prefixIcon: Icon(Icons.person_outline, color: Color(0xFF0AB39C)),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: 16),
                   ),
-                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Password input
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE0E0E0)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
+                ),
+                child: TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    prefixIcon: Icon(Icons.lock_outline, color: Color(0xFF0AB39C)),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 16),
+                  ),
                   onSubmitted: (_) => _handleLogin(),
                 ),
               ),
