@@ -174,10 +174,6 @@ else
 {
     app.UseHttpsRedirection();
 }
-else
-{
-    app.UseHttpsRedirection();
-}
 
 // ACTIVATE the CORS policy
 app.UseCors("AllowReactApp");
