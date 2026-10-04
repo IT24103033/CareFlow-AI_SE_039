@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PatientManagement from '../PatientManagement';
-import PatientEditModal from '../../components/PatientEditModal';
-import './ManagePatients.css'; // updated CSS
+import { apiFetch } from '../../api';
+import './ManagePatients.css';
 
 const ManagePatients = () => {
   const [patients, setPatients] = useState([]);
@@ -14,11 +14,9 @@ const ManagePatients = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
-  // Admission Modal State
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
-  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
     fetchPatients();
@@ -27,11 +25,8 @@ const ManagePatients = () => {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/PatientProfiles');
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(data);
-      }
+      const res = await apiFetch('/api/PatientProfiles');
+      if (res.ok) setPatients(await res.json());
     } catch (e) {
       console.error('Failed to fetch patients', e);
     }
@@ -39,11 +34,8 @@ const ManagePatients = () => {
 
   const fetchWards = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/Wards');
-      if (res.ok) {
-        const data = await res.json();
-        setWards(data);
-      }
+      const res = await apiFetch('/api/Wards');
+      if (res.ok) setWards(await res.json());
     } catch (e) {
       console.error('Failed to fetch wards', e);
     }
@@ -57,11 +49,8 @@ const ManagePatients = () => {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5241/api/PatientProfiles/search?name=${term}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(data);
-      }
+      const res = await apiFetch(`/api/PatientProfiles/search?name=${encodeURIComponent(term)}`);
+      if (res.ok) setPatients(await res.json());
     } catch (e) {
       console.error('Failed to search', e);
     }
@@ -88,9 +77,8 @@ const ManagePatients = () => {
     setAiResponse(null);
 
     try {
-      const res = await fetch('http://localhost:5241/api/Admissions/analyze-risk', {
+      const res = await apiFetch('/api/Admissions/analyze-risk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientName: aiInput.name,
           currentSymptoms: aiInput.symptoms
@@ -108,8 +96,8 @@ const ManagePatients = () => {
       }
 
       setAiResponse(data);
-    } catch (e) {
-      setAiError('Could not reach the API at http://localhost:5241. Start the backend, then try again.');
+    } catch {
+      setAiError('Could not reach the API. Start the backend, then try again.');
     } finally {
       setAiLoading(false);
     }
@@ -121,26 +109,14 @@ const ManagePatients = () => {
     setIsAdmitModalOpen(true);
   };
 
-  // ------- DOB validation -------
-  const validateDob = (val) => {
-    const pattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!pattern.test(val)) return 'Format must be YYYY-MM-DD';
-    const entered = new Date(val);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (entered > today) return 'Date of birth cannot be in the future';
-    return null; // valid
-  };
-
   const handleAdmit = async () => {
     if (!selectedWardId) {
       alert('Please select a ward');
       return;
     }
     try {
-      const res = await fetch('http://localhost:5241/api/Admissions/allocate-ward', {
+      const res = await apiFetch('/api/Admissions/allocate-ward', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientProfileId: selectedPatientId,
           wardId: selectedWardId
@@ -149,6 +125,7 @@ const ManagePatients = () => {
       if (res.ok) {
         alert('Patient admitted successfully!');
         setIsAdmitModalOpen(false);
+        fetchWards();
       } else {
         const errorText = await res.text();
         alert(`Error: ${errorText}`);
@@ -165,12 +142,13 @@ const ManagePatients = () => {
         <h2 className="page-title">Manage Patients</h2>
         <button className="register-btn" onClick={() => setIsRegisterModalOpen(true)}>Register New Patient</button>
       </div>
+      <p className="records-hint">Staff can register, admit, and run AI triage. Editing or removing records is limited to Admin.</p>
 
       <div className="search-bar-container">
         <span className="search-icon">🔍</span>
-        <input 
-          type="text" 
-          placeholder="Search Here" 
+        <input
+          type="text"
+          placeholder="Search Here"
           value={searchTerm}
           onChange={handleSearch}
           className="search-input"
@@ -178,19 +156,18 @@ const ManagePatients = () => {
       </div>
 
       <div className="patients-grid">
-        {patients.map((p, idx) => (
-          <div className="patient-tile" key={idx}>
+        {patients.map((p) => (
+          <div className="patient-tile" key={p.id || p.Id}>
             <div className="patient-tile-header">
               <div className="avatar"></div>
               <h3 className="patient-name">{p.fullName || p.Name}</h3>
             </div>
             <div className="patient-tile-body">
-              <p><strong>DOB:</strong> {p.dateOfBirth || p.DateOfBirth}</p>
+              <p><strong>DOB:</strong> {String(p.dateOfBirth || p.DateOfBirth || '').slice(0, 10)}</p>
               <p><strong>Blood Group:</strong> {p.bloodGroup || p.BloodGroup || 'N/A'}</p>
               <p><strong>History:</strong> {p.medicalHistorySummary || 'N/A'}</p>
             </div>
             <div className="patient-tile-actions">
-              <button className="admit-btn" onClick={() => setEditing(p)}>Edit</button>
               <button className="admit-btn" onClick={() => openAdmitModal(p.id || p.Id)}>Admit</button>
               <button className="admit-btn" onClick={() => openAiForPatient(p)}>AI Analyze</button>
             </div>
@@ -220,7 +197,7 @@ const ManagePatients = () => {
             <p>Select a ward to admit this patient:</p>
             <select className="ward-select" value={selectedWardId} onChange={(e) => setSelectedWardId(e.target.value)}>
               <option value="">-- Select Ward --</option>
-              {wards.map(w => (
+              {wards.map((w) => (
                 <option key={w.id} value={w.id}>{w.wardType} - {w.wardNumber}</option>
               ))}
             </select>
@@ -229,24 +206,12 @@ const ManagePatients = () => {
         </div>
       )}
 
-      {editing && (
-        <PatientEditModal
-          patient={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            fetchPatients();
-          }}
-        />
-      )}
-
-      {/* AI FAB */}
       <div className="ai-fab-container">
         {isAiOpen && (
           <div className="ai-popup">
             <h4>AI Risk Analysis</h4>
-            <input type="text" placeholder="Patient Name" value={aiInput.name} onChange={e => setAiInput({...aiInput, name: e.target.value})} />
-            <textarea placeholder="Symptoms" value={aiInput.symptoms} onChange={e => setAiInput({...aiInput, symptoms: e.target.value})}></textarea>
+            <input type="text" placeholder="Patient Name" value={aiInput.name} onChange={(e) => setAiInput({ ...aiInput, name: e.target.value })} />
+            <textarea placeholder="Symptoms" value={aiInput.symptoms} onChange={(e) => setAiInput({ ...aiInput, symptoms: e.target.value })} />
             <button onClick={handleAiAnalyze} disabled={aiLoading}>
               {aiLoading ? 'Analyzing...' : 'Analyze'}
             </button>

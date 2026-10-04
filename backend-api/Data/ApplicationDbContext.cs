@@ -44,6 +44,13 @@ namespace CareFlowAI.API.Data
                 new PatientProfile { Id = Guid.Parse("55555555-5555-5555-5555-555555555554"), FullName = "David Alaba", DateOfBirth = new DateOnly(1950, 1, 30), BloodGroup = "O-", MedicalHistorySummary = "Coronary artery disease, pacemaker fitted 2018." },
                 new PatientProfile { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), FullName = "Fiona Gallagher", DateOfBirth = new DateOnly(2005, 9, 14), BloodGroup = "AB+", MedicalHistorySummary = "None." }
             );
+
+            modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
+            modelBuilder.Entity<Ward>().HasIndex(w => w.WardNumber).IsUnique();
+            modelBuilder.Entity<Admission>()
+                .HasIndex(a => a.PatientProfileId)
+                .HasFilter("\"DischargedAt\" IS NULL")
+                .IsUnique();
         }
     }
 }

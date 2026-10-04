@@ -13,5 +13,7 @@ namespace CareFlowAI.API.Models
 
         [Required]
         public Guid WardId { get; set; }
+
+        public string? RiskLevel { get; set; }
     }
 }

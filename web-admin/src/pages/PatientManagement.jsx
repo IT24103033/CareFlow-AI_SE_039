@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../api';
 
 const PatientManagement = ({ onRegistered }) => {
     const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ const PatientManagement = ({ onRegistered }) => {
         setDobError('');
         try {
             // Connects to your running C# backend!
-            const response = await fetch('http://localhost:5241/api/PatientProfiles', {
+            const response = await apiFetch('/api/PatientProfiles', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)

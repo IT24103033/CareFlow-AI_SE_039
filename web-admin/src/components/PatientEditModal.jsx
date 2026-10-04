@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../api';
 
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
@@ -39,7 +40,7 @@ const PatientEditModal = ({ patient, onClose, onSaved }) => {
     setSaving(true);
     setError('');
     try {
-      const res = await fetch(`http://localhost:5241/api/PatientProfiles/${patient.id}`, {
+      const res = await apiFetch(`/api/PatientProfiles/${patient.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

@@ -1,28 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import './Login.css'; // We will create this
+import { API_BASE } from '../api';
+import './Login.css';
 import logo from '../assets/logo.png';
 import loginPic from '../assets/login_pic.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Simulate login based on email. Real app would call backend.
-    let role = 'Staff'; // Default
-    if (email.includes('admin')) role = 'Admin';
-    if (email.includes('doctor')) role = 'Doctor';
-    
-    login(role);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || 'Invalid username or password.');
+        return;
+      }
 
-    if (role === 'Admin') navigate('/admin');
-    else if (role === 'Doctor') navigate('/doctor');
-    else navigate('/staff/patients');
+      login({ token: data.token, role: data.role, username: data.username });
+
+      if (data.role === 'Admin') navigate('/admin');
+      else if (data.role === 'Doctor') navigate('/doctor');
+      else navigate('/staff/patients');
+    } catch {
+      setError('Could not reach the API. Is the backend running?');
+    }
   };
 
   return (
@@ -44,7 +57,7 @@ const Login = () => {
               <span className="input-icon">✉</span>
               <input 
                 type="text" 
-                placeholder="Email Address" 
+                placeholder="Username (admin, doctor, or staff)" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -60,6 +73,7 @@ const Login = () => {
                 required
               />
             </div>
+            {error && <p className="ai-error">{error}</p>}
             <button type="submit" className="login-btn">Login</button>
           </form>
         </div>

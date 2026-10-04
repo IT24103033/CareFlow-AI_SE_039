@@ -1,15 +1,18 @@
 import React, { createContext, useState, useContext } from 'react';
+import { getAuth } from '../api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => getAuth());
 
-  const login = (role) => {
-    setUser({ role });
+  const login = (data) => {
+    localStorage.setItem('careflow_auth', JSON.stringify(data));
+    setUser(data);
   };
 
   const logout = () => {
+    localStorage.removeItem('careflow_auth');
     setUser(null);
   };
 

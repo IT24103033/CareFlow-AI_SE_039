@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CareFlowAI.API.Data;
@@ -61,6 +62,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patient);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdatePatient(Guid id, [FromBody] PatientProfileUpdateDto dto)
         {
@@ -80,6 +82,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patient);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> DeletePatient(Guid id)
         {
