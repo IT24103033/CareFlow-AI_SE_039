@@ -22,7 +22,8 @@ public class TriageReviewTests
     });
 
     private static ApplicationDbContext Context(string? name = null) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString()).Options);
+        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString())
+        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)).Options);
 
     private static TriageController Controller(ApplicationDbContext db, Guid? doctorId = null, string? role = "Doctor", bool authenticated = true)
     {
