@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import PatientManagement from './PatientManagement';
 import PatientEditModal from '../components/PatientEditModal';
+import { apiFetch } from '../services/api';
 import './staff/ManagePatients.css';
 
 const AdminPatients = () => {
@@ -12,7 +13,7 @@ const AdminPatients = () => {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch('http://localhost:5241/api/PatientProfiles');
+      const res = await apiFetch('/api/PatientProfiles');
       if (res.ok) setPatients(await res.json());
     } catch (e) {
       console.error('Failed to fetch patients', e);
@@ -31,7 +32,7 @@ const AdminPatients = () => {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5241/api/PatientProfiles/search?name=${encodeURIComponent(term)}`);
+      const res = await apiFetch(`/api/PatientProfiles/search?name=${encodeURIComponent(term)}`);
       if (res.ok) setPatients(await res.json());
     } catch (e) {
       console.error('Failed to search', e);

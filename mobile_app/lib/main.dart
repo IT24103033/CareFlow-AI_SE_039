@@ -5,9 +5,10 @@
 
 import 'package:flutter/material.dart';
 
-import 'screens/LoginScreen.dart';
+import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/appointment_availability_screen.dart';
+import 'screens/my_appointments_screen.dart';
 import 'screens/my_prescriptions_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -30,6 +31,8 @@ class CareFlowApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/appointments': (context) =>
+            const MyAppointmentsScreen(),
+        '/book_appointment': (context) =>
             const AppointmentAvailabilityScreen(),
         '/prescriptions': (context) =>
             const MyPrescriptionsScreen(),

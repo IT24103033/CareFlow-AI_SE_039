@@ -476,6 +476,35 @@ class _TriageDashboardScreenState extends State<TriageDashboardScreen> {
                   style: TextStyle(color: AppTheme.danger),
                 ),
 
+              if (record.safetyVerdict != null && record.safetyVerdict!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _detailRow(
+                  'Safety & Context Findings',
+                  '${record.safetyVerdict!}\n${record.safetySummary ?? ""}'.trim(),
+                  Icons.shield_outlined,
+                ),
+              ],
+
+              if (record.schedulingOutcome != null && record.schedulingOutcome!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _detailRow(
+                  'Scheduling Outcome',
+                  record.appointmentDetails != null 
+                    ? '${record.schedulingOutcome!}\nDoctor: ${record.appointmentDetails!["doctorName"] ?? "Unknown"}\nDate: ${record.appointmentDetails!["appointmentDate"] ?? ""} at ${record.appointmentDetails!["startTime"] ?? ""}\nStatus: ${record.appointmentDetails!["status"] ?? ""}'
+                    : record.schedulingOutcome!,
+                  Icons.calendar_month_outlined,
+                ),
+              ],
+
+              if (record.notificationOutcome != null && record.notificationOutcome!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _detailRow(
+                  'Execution & Notification',
+                  record.notificationOutcome!,
+                  Icons.notifications_outlined,
+                ),
+              ],
+
               if (aiPlan != null) ...[
                 const SizedBox(height: 10),
                 Container(

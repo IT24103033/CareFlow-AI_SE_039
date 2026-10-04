@@ -14,6 +14,7 @@ import PatientManagement from './pages/PatientManagement';
 import AiAnalysis from './pages/AiAnalysis';
 import PatientHistorySearch from './pages/PatientHistorySearch';
 import TriageReview from './pages/TriageReview';
+import AdminStaff from './pages/AdminStaff';
 
 // Component C: Appointments & Resource Scheduling
 import AppointmentCalendar from './pages/AppointmentCalendar';
@@ -37,6 +38,8 @@ const staffLinks = [
 
 const adminLinks = [
   { path: '/admin', label: 'Dashboard', icon: '📊' },
+  { path: '/admin/patients', label: 'Patient Management', icon: '🧑‍⚕️' },
+  { path: '/admin/staff', label: 'Staff Management', icon: '👨‍💼' },
 ];
 
 const doctorLinks = [
@@ -63,8 +66,7 @@ function App() {
           >
             <Route index element={<AdminDashboard />} />
             <Route path="patients" element={<AdminPatients />} />
-            <Route path="wards" element={<WardManagement />} />
-            <Route path="patients" element={<AdminPatients />} />
+            <Route path="staff" element={<AdminStaff />} />
             <Route path="wards" element={<WardManagement />} />
           </Route>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiFetch } from '../services/api';
 import './staff/ManagePatients.css';
 
 const AdminDashboard = () => {
@@ -10,8 +11,8 @@ const AdminDashboard = () => {
     const load = async () => {
       try {
         const [pRes, wRes] = await Promise.all([
-          fetch('http://localhost:5241/api/PatientProfiles'),
-          fetch('http://localhost:5241/api/Wards')
+          apiFetch('/api/PatientProfiles'),
+          apiFetch('/api/Wards')
         ]);
         if (pRes.ok) setPatients(await pRes.json());
         if (wRes.ok) setWards(await wRes.json());
@@ -43,9 +44,6 @@ const AdminDashboard = () => {
           <strong>{wards.length}</strong>
         </div>
       </div>
-      <Link to="/admin/patients" className="register-btn" style={{ display: 'inline-block', textDecoration: 'none' }}>
-        Manage patient records
-      </Link>
     </div>
   );
 };
