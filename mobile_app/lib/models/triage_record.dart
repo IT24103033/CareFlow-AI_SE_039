@@ -12,6 +12,11 @@ class TriageRecord {
   final String? aiAgentStatus;
   final String? approvalStatus;
   final String? analysisMethod;
+  final String? schedulingOutcome;
+  final Map<String, dynamic>? appointmentDetails;
+  final String? safetyVerdict;
+  final String? safetySummary;
+  final String? notificationOutcome;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -26,6 +31,11 @@ class TriageRecord {
     this.aiAgentStatus,
     this.approvalStatus,
     this.analysisMethod,
+    this.schedulingOutcome,
+    this.appointmentDetails,
+    this.safetyVerdict,
+    this.safetySummary,
+    this.notificationOutcome,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -42,6 +52,11 @@ class TriageRecord {
       aiAgentStatus:  json['aiAgentStatus']  as String?,
       approvalStatus: json['approvalStatus'] as String?,
       analysisMethod: json['analysisMethod'] as String?,
+      schedulingOutcome: json['schedulingOutcome'] as String?,
+      appointmentDetails: json['appointmentDetails'] as Map<String, dynamic>?,
+      safetyVerdict:  json['safetyVerdict']  as String?,
+      safetySummary:  json['safetySummary']  as String?,
+      notificationOutcome: json['notificationOutcome'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

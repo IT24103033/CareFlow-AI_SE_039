@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -69,6 +70,25 @@ namespace CareFlowAI.API.Controllers
             var patient = await _context.PatientProfiles.FindAsync(patientId);
             if (patient == null)
                 return NotFound("Patient profile not found.");
+
+            // 1.5. Immediate Safety/Emergency Check (Intercept before AI planning or queueing)
+            var tempRecord = new TriageRecord { Symptoms = dto.Symptoms.Trim(), SeverityLevel = "Unassessed" };
+            var safetyCheck = _safetyAgent.CheckEmergencyRules(tempRecord, null);
+            bool isEmergency = false;
+            try
+            {
+                var safetyDoc = JsonDocument.Parse(safetyCheck.OutputPayload);
+                isEmergency = safetyDoc.RootElement.GetProperty("IsEmergency").GetBoolean();
+            }
+            catch { }
+
+            if (isEmergency)
+            {
+                return BadRequest(new { 
+                    error = "EMERGENCY_DETECTED", 
+                    message = "Stop. Your symptoms indicate a life-threatening emergency. Call 911 or go to the nearest emergency room immediately."
+                });
+            }
 
             // 2. Save the triage record
             var record = new TriageRecord
@@ -317,51 +337,103 @@ namespace CareFlowAI.API.Controllers
             if (dto.Decision != "Approved" && string.IsNullOrWhiteSpace(dto.DoctorNotes))
                 return BadRequest("Provide a reason for rejection or revision.");
 
-            var record = await _context.TriageRecords.Include(t => t.Patient)
-                .Include(t => t.AgentWorkflows).Include(t => t.Attachment).FirstOrDefaultAsync(t => t.Id == id);
-            if (record == null) return NotFound();
-            var agent = LatestAgent(record);
-            var conflict = TriageReviewRules.Check(record, agent, dto.ExpectedUpdatedAt);
-            if (conflict != null) return Conflict(conflict);
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 
-            record.TriageStatus = dto.Decision;
-            record.DoctorNotes = dto.DoctorNotes?.Trim();
-            record.AssignedDoctorId = doctorId;
-            record.UpdatedAt = DateTime.UtcNow;
-            agent!.ApprovalStatus = dto.Decision;
-            agent.UpdatedAt = record.UpdatedAt;
-
-            var history = new TriageReviewHistory
+            try
             {
-                TriageRecordId = record.Id,
-                AssignedDoctorId = doctorId,
-                Action = dto.Decision,
-                Notes = dto.DoctorNotes?.Trim(),
-                SymptomsAtReview = record.Symptoms,
-                AgentWorkflowStateId = agent?.Id
-            };
-            _context.TriageReviewHistories.Add(history);
+                var record = await _context.TriageRecords.Include(t => t.Patient)
+                    .Include(t => t.AgentWorkflows).Include(t => t.Attachment).FirstOrDefaultAsync(t => t.Id == id);
+                if (record == null) return NotFound();
+                var agent = LatestAgent(record);
+                var conflict = TriageReviewRules.Check(record, agent, dto.ExpectedUpdatedAt);
+                if (conflict != null) return Conflict(conflict);
 
-            if (record.TentativeAppointmentId.HasValue)
-            {
-                var appointmentService = HttpContext.RequestServices.GetRequiredService<AppointmentService>();
-                if (dto.Decision == "Approved")
+                record.TriageStatus = dto.Decision;
+                record.DoctorNotes = dto.DoctorNotes?.Trim();
+                record.AssignedDoctorId = doctorId;
+                record.UpdatedAt = DateTime.UtcNow;
+                if (agent != null)
                 {
-                    await appointmentService.ConfirmAsync(record.TentativeAppointmentId.Value);
+                    agent.ApprovalStatus = dto.Decision;
+                    agent.UpdatedAt = record.UpdatedAt;
                 }
-                else if (dto.Decision == "Rejected" || dto.Decision == "RevisionRequested")
+
+                var history = new TriageReviewHistory
                 {
-                    await appointmentService.CancelAsync(record.TentativeAppointmentId.Value);
-                    record.TentativeAppointmentId = null;
+                    TriageRecordId = record.Id,
+                    AssignedDoctorId = doctorId,
+                    Action = dto.Decision,
+                    Notes = dto.DoctorNotes?.Trim(),
+                    SymptomsAtReview = record.Symptoms,
+                    AgentWorkflowStateId = agent?.Id
+                };
+                _context.TriageReviewHistories.Add(history);
+
+                if (record.TentativeAppointmentId.HasValue)
+                {
+                    var appointmentService = HttpContext.RequestServices.GetRequiredService<AppointmentService>();
+                    if (dto.Decision == "Approved")
+                    {
+                        var appt = await appointmentService.ConfirmAsync(record.TentativeAppointmentId.Value);
+                        if (appt != null)
+                        {
+                            // Integrate appointment notification through D's agreed contract if available.
+                            // Currently unsupported, so record it as pending/unsupported.
+                            var notifState = new AgentWorkflowState
+                            {
+                                TriageRecordId = record.Id,
+                                AgentName = "NotificationAgent",
+                                AgentStatus = "Unsupported",
+                                ErrorMessage = "Pending dependency: Component D NotificationService does not yet support appointment notifications.",
+                                StartedAt = DateTime.UtcNow,
+                                CompletedAt = DateTime.UtcNow
+                            };
+                            _context.AgentWorkflows.Add(notifState);
+                        }
+                        else
+                        {
+                            // Authorized recovery path: if confirmation fails (e.g. not found), we can still approve the triage
+                            // but we mark the appointment as failed.
+                            var errorState = new AgentWorkflowState
+                            {
+                                TriageRecordId = record.Id,
+                                AgentName = "AppointmentAgent",
+                                AgentStatus = "Failed",
+                                ErrorMessage = "Execution failure: The tentative appointment could not be confirmed.",
+                                StartedAt = DateTime.UtcNow,
+                                CompletedAt = DateTime.UtcNow
+                            };
+                            _context.AgentWorkflows.Add(errorState);
+                            record.TentativeAppointmentId = null;
+                        }
+                    }
+                    else if (dto.Decision == "Rejected" || dto.Decision == "RevisionRequested")
+                    {
+                        await appointmentService.CancelAsync(record.TentativeAppointmentId.Value);
+                        // Release tentative booking but preserve audit history (don't clear ID? Prompt: "Rejection/revision must release the tentative booking and preserve its audit history.")
+                        // If we preserve it, maybe don't set TentativeAppointmentId to null, or do we?
+                        // "preserve its audit history" could mean keeping the appointment record in the database as 'Cancelled'.
+                        // We can set record.TentativeAppointmentId = null so it's not shown as active, but the appointment record remains.
+                        record.TentativeAppointmentId = null;
+                    }
                 }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Re-fetch appointment if needed or just let MapToDto handle it
+                return Ok(MapToDto(record, agent, _cloudinary));
             }
-
-            try { await _context.SaveChangesAsync(); }
             catch (DbUpdateConcurrencyException)
             {
+                await transaction.RollbackAsync();
                 return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
-            return Ok(MapToDto(record, agent, _cloudinary));
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         [Authorize(Roles = "Patient")]
@@ -494,6 +566,43 @@ namespace CareFlowAI.API.Controllers
                 } catch { /* fallback */ }
             }
 
+            var apptWorkflow = record.AgentWorkflows?.Where(a => a.AgentName == "AppointmentAgent").OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+            var safetyWorkflow = record.AgentWorkflows?.Where(a => a.AgentName == "SafetyAgent").OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+            var notifWorkflow = record.AgentWorkflows?.Where(a => a.AgentName == "NotificationAgent").OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+
+            string schedulingOutcome = "Pending";
+            AppointmentDto? apptDetails = null;
+            if (apptWorkflow != null)
+            {
+                if (apptWorkflow.AgentStatus == "Completed" && !string.IsNullOrWhiteSpace(apptWorkflow.OutputPayload))
+                {
+                    schedulingOutcome = "Booked";
+                    try { apptDetails = System.Text.Json.JsonSerializer.Deserialize<AppointmentDto>(apptWorkflow.OutputPayload, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); } catch { }
+                }
+                else
+                {
+                    schedulingOutcome = apptWorkflow.ErrorMessage ?? "Failed";
+                }
+            }
+
+            string? safetyVerdict = null;
+            string? safetySummary = null;
+            if (safetyWorkflow != null && !string.IsNullOrWhiteSpace(safetyWorkflow.OutputPayload))
+            {
+                try 
+                {
+                    var safetyDoc = System.Text.Json.JsonDocument.Parse(safetyWorkflow.OutputPayload);
+                    if (safetyDoc.RootElement.TryGetProperty("Verdict", out var v)) safetyVerdict = v.GetString();
+                    if (safetyDoc.RootElement.TryGetProperty("Summary", out var s)) safetySummary = s.GetString();
+                } catch {}
+            }
+
+            string? notifOutcome = null;
+            if (notifWorkflow != null)
+            {
+                notifOutcome = notifWorkflow.ErrorMessage ?? notifWorkflow.AgentStatus;
+            }
+
             return new TriageResponseDto
             {
                 Id               = record.Id,
@@ -513,6 +622,11 @@ namespace CareFlowAI.API.Controllers
                 AnalysisMethod   = TriageReviewRules.ReadPlan(agent?.OutputPayload)?.AnalysisMethod,
                 PlanningExecution = TriageReviewRules.ReadExecution(agent?.OutputPayload),
                 TentativeAppointmentId = record.TentativeAppointmentId,
+                SchedulingOutcome = schedulingOutcome,
+                AppointmentDetails = apptDetails,
+                SafetyVerdict = safetyVerdict,
+                SafetySummary = safetySummary,
+                NotificationOutcome = notifOutcome,
                 ReviewHistories  = record.ReviewHistories?.OrderByDescending(h => h.CreatedAt).Select(h => new TriageReviewHistoryDto
                 {
                     Id = h.Id,
