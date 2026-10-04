@@ -71,9 +71,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             var dbDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
             if (dbDescriptor != null) services.Remove(dbDescriptor);
 
-            services.AddDbContext<ApplicationDbContext>(options =>
-            {
-                options.UseInMemoryDatabase(DatabaseName);
+            services.AddDbContext<ApplicationDbContext>(options => {
+                options.UseInMemoryDatabase(DatabaseName)
+                       .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
             });
 
             // Replace assessment client stub
@@ -82,8 +82,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddScoped<IClinicalAssessmentClient, TestAssessmentClient>();
 
             // Replace notification service stub
-            var notifDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationService));
-            if (notifDescriptor != null) services.Remove(notifDescriptor);
+            var notifDescriptors = services.Where(d => d.ServiceType == typeof(INotificationService)).ToList();
+            foreach (var d in notifDescriptors) services.Remove(d);
             // Also remove TypedHttpClient registrations for NotificationService
             var httpClientDescriptors = services
                 .Where(d => d.ImplementationType == typeof(NotificationService))

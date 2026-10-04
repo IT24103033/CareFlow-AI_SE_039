@@ -44,10 +44,10 @@ namespace CareFlowAI.Orchestrator.Agents
         private readonly string _apiKey;
         private readonly string _model;
 
-        public DomainAnalysisAgent(string apiKey, IPatientHistoryTool historyTool, string? model = null)
+        public DomainAnalysisAgent(string apiKey, IPatientHistoryTool historyTool, string? model = null, HttpClient? httpClient = null)
         {
             _historyTool = historyTool ?? new FetchPatientHistory();
-            _httpClient = new HttpClient();
+            _httpClient = httpClient ?? new HttpClient();
             _apiKey = apiKey;
             _model = string.IsNullOrWhiteSpace(model) ? "gemini-flash-latest" : model;
         }
@@ -107,15 +107,37 @@ Rules:
                     throw new InvalidOperationException("GeminiApiKey is an OpenAI key (sk-...). This agent calls Google Gemini, which needs a Google AI Studio key.");
                 }
 
-                using var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent");
-                request.Headers.TryAddWithoutValidation("x-goog-api-key", _apiKey);
-                request.Content = content;
+                int maxRetries = 2;
+                HttpResponseMessage? response = null;
 
-                var response = await _httpClient.SendAsync(request, cancellationToken);
-
-                if (!response.IsSuccessStatusCode)
+                for (int i = 0; i <= maxRetries; i++)
                 {
-                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API error ({(int)response.StatusCode} {response.ReasonPhrase})");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent");
+                    request.Headers.TryAddWithoutValidation("x-goog-api-key", _apiKey);
+                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                    response = await _httpClient.SendAsync(request, cancellationToken);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        break;
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        if (i == maxRetries) break;
+                        await Task.Delay(100 * (i + 1), cancellationToken);
+                    }
+                    else
+                    {
+                        break; // Break on other errors
+                    }
+                }
+
+                if (response == null || !response.IsSuccessStatusCode)
+                {
+                    var statusCode = response != null ? (int)response.StatusCode : 500;
+                    var reasonPhrase = response?.ReasonPhrase ?? "Unknown";
+                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API error ({statusCode} {reasonPhrase})");
                 }
 
                 var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -145,13 +167,7 @@ Rules:
             }
             catch (Exception ex)
             {
-                return new AgentOutput
-                {
-                    RiskLevel = "Unknown",
-                    FlaggedFactors = new[] { "Cloud AI Connection Failed.", ex.Message },
-                    RecommendedWardType = "Unavailable",
-                    PatientHistoryUsed = medicalHistory
-                };
+                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", $"AI processing failed: {ex.Message}");
             }
         }
 
@@ -165,14 +181,9 @@ Rules:
                     PropertyNameCaseInsensitive = true
                 });
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                return new AgentOutput
-                {
-                    RiskLevel = "Unknown",
-                    FlaggedFactors = new[] { "AI Parsing Failed." },
-                    RecommendedWardType = "Unavailable"
-                };
+                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", $"AI Parsing Failed: {ex.Message}");
             }
 
             if (result == null)

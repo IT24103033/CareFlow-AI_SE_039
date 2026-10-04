@@ -15,16 +15,16 @@ namespace CareFlowAI.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
-        private readonly IPatientHistoryTool _patientHistoryTool;
+        private readonly IDomainAnalysisAgent _domainAnalysisAgent;
 
         public AdmissionsController(
             ApplicationDbContext context,
             IConfiguration configuration,
-            IPatientHistoryTool patientHistoryTool)
+            IDomainAnalysisAgent domainAnalysisAgent)
         {
             _context = context;
             _configuration = configuration;
-            _patientHistoryTool = patientHistoryTool;
+            _domainAnalysisAgent = domainAnalysisAgent;
         }
 
         // POST: api/admissions/allocate-ward
@@ -70,15 +70,18 @@ namespace CareFlowAI.API.Controllers
         [HttpPost("analyze-risk")]
         public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request, CancellationToken cancellationToken)
         {
-            // Read the secure key from appsettings
-            string apiKey = _configuration["Gemini:ApiKey"]
-                ?? _configuration["GeminiApiKey"]
-                ?? string.Empty;
-            string model = _configuration["Gemini:Model"] ?? "gemini-flash-latest";
-            var agent = new DomainAnalysisAgent(apiKey, _patientHistoryTool, model);
-            
-            var analysisResult = await agent.AnalyzeRiskAsync(request);
-            return Ok(analysisResult);
+            try
+            {
+                var analysisResult = await _domainAnalysisAgent.AnalyzeRiskAsync(request);
+                return Ok(analysisResult);
+            }
+            catch (CareFlowAI.Orchestrator.Agents.DomainAnalysisException ex)
+            {
+                if (ex.ErrorCode == "DOMAIN_INVALID_OUTPUT")
+                    return StatusCode(422, new { error = "AI provider returned invalid output." });
+                
+                return StatusCode(503, new { error = "AI provider is temporarily unavailable." });
+            }
         }
     }
 }

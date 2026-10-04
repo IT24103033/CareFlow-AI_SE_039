@@ -30,7 +30,8 @@ public class AdmissionsControllerTests
     }
 
     private static ApplicationDbContext Context(string? name = null) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString()).Options);
+        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString())
+        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)).Options);
 
     private static AdmissionsController Controller(ApplicationDbContext db, IDomainAnalysisAgent agent, Guid? doctorId = null, string? role = "Doctor", bool authenticated = true)
     {
@@ -38,7 +39,7 @@ public class AdmissionsControllerTests
         if (role != null) claims.Add(new Claim(ClaimTypes.Role, role));
         if (doctorId != null) claims.Add(new Claim("doctor_id", doctorId.ToString()!));
         
-        var controller = new AdmissionsController(db, new ConfigurationBuilder().Build(), new CareFlowAI.API.Services.PatientContextTool(db), agent)
+        var controller = new AdmissionsController(db, new ConfigurationBuilder().Build(), agent)
         {
             ControllerContext = new ControllerContext 
             { 

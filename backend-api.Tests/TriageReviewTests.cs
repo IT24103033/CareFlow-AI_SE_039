@@ -22,7 +22,8 @@ public class TriageReviewTests
     });
 
     private static ApplicationDbContext Context(string? name = null) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString()).Options);
+        .UseInMemoryDatabase(name ?? Guid.NewGuid().ToString())
+        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)).Options);
 
     private static TriageController Controller(ApplicationDbContext db, Guid? doctorId = null, string? role = "Doctor", bool authenticated = true)
     {
@@ -34,7 +35,7 @@ public class TriageReviewTests
             new PlanningAgentService(
                 new PatientContextTool(db), 
                 new GeminiAssessmentClient(new ConfigurationBuilder().Build()), 
-                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent(new CareFlowAI.API.Services.DomainContextWrapper(new PatientContextTool(db)), "dummy", "gemini-3.8-flash"),
+                new CareFlowAI.Orchestrator.Agents.DomainAnalysisAgent("dummy", new CareFlowAI.API.Services.DbPatientHistoryTool(db), "gemini-3.8-flash"),
                 new ConfigurationBuilder().Build()),
             new Microsoft.Extensions.DependencyInjection.ServiceCollection().BuildServiceProvider(),
             null!,
