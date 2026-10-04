@@ -34,9 +34,14 @@ public class TestNotificationService : INotificationService
 {
     public Task<bool> SendEmailAsync(string toEmail, string subject, string messageBody) => Task.FromResult(true);
     public Task<bool> SendSmsAsync(string phoneNumber, string message) => Task.FromResult(true);
-    public Task<bool> DispatchPrescriptionNotificationAsync(string patientName, string contact, string prescriptionSummary, string channel = "Both")
+    public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
+        string patientName,
+        string? patientEmail,
+        string? patientPhone,
+        string prescriptionSummary,
+        string channel = "Both")
     {
-        return Task.FromResult(true);
+        return Task.FromResult((true, (string?)null));
     }
 }
 

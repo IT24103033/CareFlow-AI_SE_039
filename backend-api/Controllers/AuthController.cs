@@ -255,5 +255,25 @@ namespace CareFlowAI.API.Controllers
                 FullName = doctor?.FullName ?? patient?.FullName ?? user.Username
             });
         }
+        // ── GET api/auth/staff ──────────────────────────────────────────────
+        [Authorize(Roles = "Admin")]
+        [HttpGet("staff")]
+        public async Task<IActionResult> GetStaff()
+        {
+            var staff = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Role == "Admin" || u.Role == "Doctor" || u.Role == "Staff")
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.Email,
+                    u.Role,
+                    u.DoctorId
+                })
+                .ToListAsync();
+
+            return Ok(staff);
+        }
     }
 }

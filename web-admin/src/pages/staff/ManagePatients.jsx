@@ -11,11 +11,14 @@ const ManagePatients = () => {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState({ name: '', symptoms: '' });
   const [aiResponse, setAiResponse] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   // Admission Modal State
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
+  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
     fetchPatients();
@@ -64,7 +67,26 @@ const ManagePatients = () => {
     }
   };
 
+  const openAiForPatient = (patient) => {
+    setAiInput({
+      name: patient.fullName || patient.Name || '',
+      symptoms: ''
+    });
+    setAiResponse(null);
+    setAiError('');
+    setIsAiOpen(true);
+  };
+
   const handleAiAnalyze = async () => {
+    if (!aiInput.name.trim() || !aiInput.symptoms.trim()) {
+      setAiError('Enter the patient name and current symptoms.');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError('');
+    setAiResponse(null);
+
     try {
       const res = await apiFetch('/api/Admissions/analyze-risk', {
         method: 'POST',
@@ -73,14 +95,22 @@ const ManagePatients = () => {
           currentSymptoms: aiInput.symptoms
         })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAiResponse(data);
-      } else {
-        setAiResponse({ recommendedWard: 'General', flaggedFactors: ['Backend error'] });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        const message =
+          (data && (data.detail || data.title || data.error || data.message)) ||
+          (typeof data === 'string' ? data : null) ||
+          `Backend returned ${res.status}. Check the API terminal for the error.`;
+        setAiError(message);
+        return;
       }
+
+      setAiResponse(data);
     } catch (e) {
-      setAiResponse({ recommendedWard: 'ICU (Mock)', flaggedFactors: ['High fever', 'Shortness of breath'] });
+      setAiError('Could not reach the API at http://localhost:5241. Start the backend, then try again.');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -158,7 +188,9 @@ const ManagePatients = () => {
               <p><strong>History:</strong> {p.medicalHistorySummary || 'N/A'}</p>
             </div>
             <div className="patient-tile-actions">
+              <button className="admit-btn" onClick={() => setEditing(p)}>Edit</button>
               <button className="admit-btn" onClick={() => openAdmitModal(p.id || p.Id)}>Admit</button>
+              <button className="admit-btn" onClick={() => openAiForPatient(p)}>AI Analyze</button>
             </div>
           </div>
         ))}
@@ -168,7 +200,12 @@ const ManagePatients = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <button className="close-btn" onClick={() => setIsRegisterModalOpen(false)}>×</button>
-            <PatientManagement />
+            <PatientManagement
+              onRegistered={() => {
+                setIsRegisterModalOpen(false);
+                fetchPatients();
+              }}
+            />
           </div>
         </div>
       )}
@@ -190,6 +227,17 @@ const ManagePatients = () => {
         </div>
       )}
 
+      {editing && (
+        <PatientEditModal
+          patient={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            fetchPatients();
+          }}
+        />
+      )}
+
       {/* AI FAB */}
       <div className="ai-fab-container">
         {isAiOpen && (
@@ -197,11 +245,18 @@ const ManagePatients = () => {
             <h4>AI Risk Analysis</h4>
             <input type="text" placeholder="Patient Name" value={aiInput.name} onChange={e => setAiInput({...aiInput, name: e.target.value})} />
             <textarea placeholder="Symptoms" value={aiInput.symptoms} onChange={e => setAiInput({...aiInput, symptoms: e.target.value})}></textarea>
-            <button onClick={handleAiAnalyze}>Analyze</button>
+            <button onClick={handleAiAnalyze} disabled={aiLoading}>
+              {aiLoading ? 'Analyzing...' : 'Analyze'}
+            </button>
+            {aiError && <p className="ai-error">{aiError}</p>}
             {aiResponse && (
               <div className="ai-results">
-                <p><strong>Ward:</strong> {aiResponse.recommendedWard}</p>
+                <p><strong>Risk:</strong> {aiResponse.riskLevel}</p>
+                <p><strong>Ward:</strong> {aiResponse.recommendedWardType}</p>
                 <p><strong>Flags:</strong> {aiResponse.flaggedFactors?.join(', ')}</p>
+                {aiResponse.patientHistoryUsed && (
+                  <p><strong>History used:</strong> {aiResponse.patientHistoryUsed}</p>
+                )}
               </div>
             )}
           </div>

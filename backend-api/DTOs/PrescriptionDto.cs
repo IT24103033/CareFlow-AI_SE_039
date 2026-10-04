@@ -40,11 +40,14 @@ namespace CareFlowAI.API.DTOs
         public List<PrescriptionItemDto> Items { get; set; } = new();
     }
 
-    /// <summary>DTO for updating prescription notes or doctor info.</summary>
+    /// <summary>
+    /// DTO for updating prescription notes.
+    /// IssuedByDoctorId is NOT accepted here; it is derived exclusively from the
+    /// authenticated doctor's JWT claim during the PATCH /approve action.
+    /// </summary>
     public class UpdatePrescriptionDto
     {
         public string? Notes { get; set; }
-        public Guid? IssuedByDoctorId { get; set; }
     }
 
     /// <summary>DTO for doctor approval/rejection of an AI-validated prescription.</summary>
