@@ -11,7 +11,6 @@ import AdminPatients from './pages/AdminPatients';
 import ManagePatients from './pages/staff/ManagePatients';
 import WardManagement from './pages/WardManagement';
 import PatientManagement from './pages/PatientManagement';
-import AiAnalysis from './pages/AiAnalysis';
 import PatientHistorySearch from './pages/PatientHistorySearch';
 import TriageReview from './pages/TriageReview';
 import AdminStaff from './pages/AdminStaff';
@@ -32,7 +31,6 @@ const staffLinks = [
   { path: '/staff/pharmacy', label: 'Pharmacy & Inventory', icon: '💊' },
   { path: '/staff/prescriptions', label: 'Prescriptions', icon: '📋' },
   { path: '/staff/history-search', label: 'History Search', icon: '🔍' },
-  { path: '/staff/ai-analysis', label: 'AI Analysis', icon: '🤖' },
   { path: '/staff/appointments', label: 'Appointments', icon: '📅' }
 ];
 
@@ -124,11 +122,6 @@ function App() {
               element={<PatientHistorySearch />}
             />
 
-            <Route
-              path="ai-analysis"
-              element={<AiAnalysis />}
-            />
-
             {/* Component C: Appointments & Resource Scheduling */}
             <Route
               path="appointments"
@@ -187,15 +180,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
                 <PatientManagement />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/ai-analysis"
-            element={
-              <ProtectedRoute allowedRoles={['Doctor', 'Staff', 'Admin']}>
-                <AiAnalysis />
               </ProtectedRoute>
             }
           />

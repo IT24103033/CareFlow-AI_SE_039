@@ -74,6 +74,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patients);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdatePatient(Guid id, [FromBody] PatientProfileUpdateDto dto)
         {
@@ -93,6 +94,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patient);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> DeletePatient(Guid id)
         {
