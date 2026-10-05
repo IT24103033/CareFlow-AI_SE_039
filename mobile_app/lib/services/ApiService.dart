@@ -1,14 +1,20 @@
-import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/PatientProfile.dart';
 import '../models/Ward.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static final String baseUrl = Platform.isAndroid
-      ? 'http://10.0.2.2:5241/api'
-      : 'http://localhost:5241/api';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:5241/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5241/api';
+    }
+    return 'http://localhost:5241/api';
+  }
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await AuthService.getAccessToken();
@@ -43,6 +49,35 @@ class ApiService {
 
   Future<PatientProfile?> fetchPatientProfile(String name) async {
     return loginPatient(name);
+  }
+
+  /// Loads the signed-in patient's record, including medical history.
+  Future<PatientProfile> fetchMyMedicalProfile() async {
+    final patientId = await AuthService.getPatientId();
+    if (patientId == null || patientId.isEmpty) {
+      throw Exception('Could not find your patient ID. Please log in again.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/PatientProfiles/$patientId'),
+      headers: await _authHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return PatientProfile.fromJson(
+        json.decode(response.body) as Map<String, dynamic>,
+      );
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception('Session expired. Please log in again.');
+    }
+
+    if (response.statusCode == 404) {
+      throw Exception('No medical profile was found for this account.');
+    }
+
+    throw Exception('Could not load medical history (${response.statusCode}).');
   }
 
   Future<List<Ward>> fetchWards() async {
