@@ -411,6 +411,7 @@ namespace CareFlowAI.API.Controllers
                     var appointmentService = HttpContext.RequestServices.GetRequiredService<AppointmentService>();
                     if (dto.Decision == "Approved")
                     {
+                        await appointmentService.ApproveAsync(record.TentativeAppointmentId.Value, doctorId);
                         var appt = await appointmentService.ConfirmAsync(record.TentativeAppointmentId.Value);
                         if (appt != null)
                         {
@@ -587,6 +588,40 @@ namespace CareFlowAI.API.Controllers
             .OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).FirstOrDefault();
 
         // ── Helper ───────────────────────────────────────────────────────────
+        [Authorize(Roles = "Patient")]
+        [HttpPost("{id:guid}/book-slot")]
+        public async Task<IActionResult> BookSlot(Guid id, [FromBody] AppointmentDto slotRequest)
+        {
+            var record = await _context.TriageRecords.Include(t => t.AgentWorkflows).FirstOrDefaultAsync(t => t.Id == id);
+            if (record == null) return NotFound();
+
+            var patientClaim = User?.FindFirst("patient_id")?.Value;
+            if (!Guid.TryParse(patientClaim, out var authPatientId) || record.PatientId != authPatientId)
+                return StatusCode(403, "Unauthorized.");
+
+            if (!record.AssignedDoctorId.HasValue)
+                return BadRequest("No doctor assigned to this triage record.");
+
+            var agentState = record.AgentWorkflows.OrderByDescending(w => w.CreatedAt).FirstOrDefault(w => w.AgentName == "AppointmentAgent");
+            if (agentState != null)
+            {
+                var agentResponse = await _appointmentAgent.FindAndBookAsync(
+                    record.AssignedDoctorId.Value, record.PatientId, slotRequest.AppointmentDate, slotRequest.StartTime, slotRequest.EndTime);
+                
+                if (agentResponse.Status == CareFlowAI.Orchestrator.Models.AppointmentActionStatus.Success && agentResponse.AppointmentId.HasValue)
+                {
+                    record.TentativeAppointmentId = agentResponse.AppointmentId.Value;
+                    agentState.AgentStatus = "Completed";
+                    agentState.OutputPayload = agentResponse.Message;
+                    agentState.CompletedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    return Ok(MapToDto(record, agentState, _cloudinary));
+                }
+                return BadRequest(agentResponse.Message);
+            }
+            return BadRequest("Agent state not found.");
+        }
+
         private static TriageResponseDto MapToDto(TriageRecord record, AgentWorkflowState? agent, CloudinaryDotNet.Cloudinary? cloudinary = null)
         {
             string? imageUrl = null;
@@ -609,12 +644,18 @@ namespace CareFlowAI.API.Controllers
 
             string schedulingOutcome = "Pending";
             AppointmentDto? apptDetails = null;
+            List<AvailableSlotDto>? availableSlots = null;
             if (apptWorkflow != null)
             {
                 if (apptWorkflow.AgentStatus == "Completed" && !string.IsNullOrWhiteSpace(apptWorkflow.OutputPayload))
                 {
                     schedulingOutcome = "Booked";
                     try { apptDetails = System.Text.Json.JsonSerializer.Deserialize<AppointmentDto>(apptWorkflow.OutputPayload, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); } catch { }
+                }
+                else if (apptWorkflow.AgentStatus == "ActionRequired" && !string.IsNullOrWhiteSpace(apptWorkflow.OutputPayload))
+                {
+                    schedulingOutcome = "ActionRequired";
+                    try { availableSlots = System.Text.Json.JsonSerializer.Deserialize<List<AvailableSlotDto>>(apptWorkflow.OutputPayload, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); } catch { }
                 }
                 else
                 {
@@ -661,6 +702,7 @@ namespace CareFlowAI.API.Controllers
                 TentativeAppointmentId = record.TentativeAppointmentId,
                 SchedulingOutcome = schedulingOutcome,
                 AppointmentDetails = apptDetails,
+                AvailableSlots = availableSlots,
                 SafetyVerdict = safetyVerdict,
                 SafetySummary = safetySummary,
                 NotificationOutcome = notifOutcome,

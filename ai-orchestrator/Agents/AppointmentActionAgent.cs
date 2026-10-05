@@ -58,11 +58,13 @@ namespace CareFlowAI.Orchestrator.Agents
                 var requestedSlotExists =
                     document.RootElement.EnumerateArray()
                         .Any(slot =>
-                            slot.GetProperty("startTime")
-                                .GetString() == startTime.ToString("HH:mm:ss")
-                            &&
-                            slot.GetProperty("endTime")
-                                .GetString() == endTime.ToString("HH:mm:ss"));
+                        {
+                            var hasSt = slot.TryGetProperty("startTime", out var st) || slot.TryGetProperty("StartTime", out st);
+                            var hasEt = slot.TryGetProperty("endTime", out var et) || slot.TryGetProperty("EndTime", out et);
+                            return hasSt && hasEt && 
+                                   st.GetString() == startTime.ToString("HH:mm:ss") && 
+                                   et.GetString() == endTime.ToString("HH:mm:ss");
+                        });
 
                 if (!requestedSlotExists)
                 {

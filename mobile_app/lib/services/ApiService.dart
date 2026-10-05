@@ -141,6 +141,30 @@ class ApiService {
     }
   }
 
+  /// Book a slot for a triage record.
+  Future<Map<String, dynamic>> bookTriageSlot(String triageId, Map<String, dynamic> slotData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/Triage/$triageId/book-slot'),
+        headers: await _authHeaders(),
+        body: json.encode(slotData),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+
+      throw Exception(
+        'Failed to book slot '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to book slot: $e',
+      );
+    }
+  }
+
   /// Create a tentative appointment.
   Future<bool> createTentativeAppointment({
     required String doctorId,

@@ -72,6 +72,7 @@ namespace CareFlowAI.API.DTOs
         public Guid? TentativeAppointmentId { get; set; }
         public string? SchedulingOutcome { get; set; }
         public AppointmentDto? AppointmentDetails { get; set; }
+        public List<AvailableSlotDto>? AvailableSlots { get; set; }
 
         // Component D (Safety & Context)
         public string? SafetyVerdict { get; set; }

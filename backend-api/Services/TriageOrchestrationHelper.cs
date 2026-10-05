@@ -105,7 +105,7 @@ namespace CareFlowAI.API.Services
             var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
             var end = tomorrow.AddDays(7);
             
-            AvailableSlotDto? selectedSlot = null;
+            var availableSlots = new List<AvailableSlotDto>();
             Guid? selectedDoctorId = null;
 
             foreach (var doctor in doctors)
@@ -124,17 +124,18 @@ namespace CareFlowAI.API.Services
 
                         if (!hasConflict)
                         {
-                            selectedSlot = slot;
-                            selectedDoctorId = doctor.Id;
-                            break;
+                            availableSlots.Add(slot);
                         }
                     }
-                    if (selectedSlot != null) break;
                 }
-                if (selectedSlot != null) break;
+                if (availableSlots.Any()) 
+                {
+                    selectedDoctorId = doctor.Id;
+                    break;
+                }
             }
 
-            if (selectedSlot == null || selectedDoctorId == null)
+            if (!availableSlots.Any() || selectedDoctorId == null)
             {
                 context.AgentWorkflows.Add(new AgentWorkflowState
                 {
@@ -143,69 +144,23 @@ namespace CareFlowAI.API.Services
                     AgentStatus = "Failed",
                     StartedAt = DateTime.UtcNow,
                     CompletedAt = DateTime.UtcNow,
-                    ErrorMessage = "No suitable slot found for any matching doctor."
+                    ErrorMessage = "No suitable slots found for any matching doctor."
                 });
                 return;
             }
+
+            record.AssignedDoctorId = selectedDoctorId;
 
             var agentState = new AgentWorkflowState
             {
                 TriageRecordId = record.Id,
                 AgentName = "AppointmentAgent",
-                AgentStatus = "Running",
+                AgentStatus = "ActionRequired",
                 StartedAt = DateTime.UtcNow,
-                InputPayload = JsonSerializer.Serialize(new { 
-                    DoctorId = selectedDoctorId.Value, 
-                    Date = selectedSlot.Date, 
-                    StartTime = selectedSlot.StartTime, 
-                    EndTime = selectedSlot.EndTime 
-                })
+                CompletedAt = DateTime.UtcNow,
+                OutputPayload = JsonSerializer.Serialize(availableSlots)
             };
             context.AgentWorkflows.Add(agentState);
-            
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            
-            try 
-            {
-                var task = appointmentAgent.FindAndBookAsync(
-                    selectedDoctorId.Value, record.PatientId, selectedSlot.Date, selectedSlot.StartTime, selectedSlot.EndTime);
-                
-                var agentResponse = await task.WaitAsync(cts.Token);
-                
-                try 
-                {
-                    var apptDto = JsonSerializer.Deserialize<AppointmentDto>(agentResponse, 
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        
-                    if (apptDto != null && apptDto.Id != Guid.Empty)
-                    {
-                        record.TentativeAppointmentId = apptDto.Id;
-                        agentState.AgentStatus = "Completed";
-                        agentState.OutputPayload = agentResponse;
-                    }
-                    else
-                    {
-                        agentState.AgentStatus = "Failed";
-                        agentState.ErrorMessage = agentResponse;
-                    }
-                }
-                catch
-                {
-                    agentState.AgentStatus = "Failed";
-                    agentState.ErrorMessage = agentResponse;
-                }
-            }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is TimeoutException)
-            {
-                agentState.AgentStatus = "Failed";
-                agentState.ErrorMessage = "Execution timed out.";
-            }
-            catch (Exception ex)
-            { 
-                agentState.AgentStatus = "Failed";
-                agentState.ErrorMessage = "Execution failure: " + ex.Message;
-            }
-            agentState.CompletedAt = DateTime.UtcNow;
         }
     }
 }

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/triage_repository.dart';
 import '../theme/app_theme.dart';
+import '../services/ApiService.dart';
 
 class SubmitTriageScreen extends StatefulWidget {
   final TriageRepository repository;
@@ -157,6 +158,33 @@ class _SubmitTriageScreenState extends State<SubmitTriageScreen> {
           _errorMessage = 'Submission failed. Check your connection and try again.\n\nError: $e';
         }
       });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _bookSlot(Map<String, dynamic> slot) async {
+    setState(() => _isLoading = true);
+    try {
+      final apiService = ApiService(); // Use default instance or passed repo if available
+      final slotData = {
+        'appointmentDate': slot['date'],
+        'startTime': slot['startTime'],
+        'endTime': slot['endTime'],
+      };
+      final updatedResult = await apiService.bookTriageSlot(_result!['id'], slotData);
+      if (!mounted) return;
+      setState(() {
+        _result = updatedResult;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Appointment booked successfully!'), backgroundColor: AppTheme.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to book: $e'), backgroundColor: AppTheme.danger),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -380,7 +408,56 @@ class _SubmitTriageScreenState extends State<SubmitTriageScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 28),
+        const SizedBox(height: 20),
+
+        // Agent Action Card
+        if (_result!['schedulingOutcome'] != null && _result!['schedulingOutcome'] != 'Pending') ...[
+          _cardSection(
+            title: 'Appointment Agent',
+            icon: Icons.calendar_today_outlined,
+            iconColor: AppTheme.navyDark,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _planRow(
+                  _result!['schedulingOutcome'] == 'Booked' ? Icons.check_circle_outline : Icons.info_outline,
+                  'Booking Status',
+                  _result!['schedulingOutcome'] == 'ActionRequired' ? 'Please select a slot below' : _result!['schedulingOutcome'],
+                ),
+                if (_result!['appointmentDetails'] != null)
+                  _planRow(
+                    Icons.event_available,
+                    'Details',
+                    'Dr. ${_result!['appointmentDetails']['doctorName']}\n${_result!['appointmentDetails']['appointmentDate']} at ${_result!['appointmentDetails']['startTime']}',
+                  ),
+                if (_result!['schedulingOutcome'] == 'ActionRequired' && _result!['availableSlots'] != null) ...[
+                  const SizedBox(height: 12),
+                  const Text('Available Times:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.navyMid)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: (_result!['availableSlots'] as List).map<Widget>((slot) {
+                      return ElevatedButton(
+                        onPressed: () => _bookSlot(slot),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.tealLight,
+                          foregroundColor: AppTheme.navyDark,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: Text('${slot['date']} ${slot['startTime']}'),
+                      );
+                    }).toList(),
+                  ),
+                ]
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+        ] else ...[
+          const SizedBox(height: 8),
+        ],
 
         OutlinedButton.icon(
           onPressed: () => setState(() => _result = null),

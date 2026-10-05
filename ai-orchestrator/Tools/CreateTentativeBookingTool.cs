@@ -50,15 +50,14 @@ namespace CareFlowAI.Orchestrator.Tools
                     using var document =
                         JsonDocument.Parse(bookingResult);
 
-                    if (document.RootElement.TryGetProperty(
-                            "appointmentId",
-                            out var appointmentIdElement) &&
-                        Guid.TryParse(
-                            appointmentIdElement.GetString(),
-                            out var parsedAppointmentId))
+                    var hasId = document.RootElement.TryGetProperty("appointmentId", out var appointmentIdElement) || 
+                                document.RootElement.TryGetProperty("Id", out appointmentIdElement) || 
+                                document.RootElement.TryGetProperty("id", out appointmentIdElement);
+
+                    if (hasId && Guid.TryParse(appointmentIdElement.GetString(), out var parsedAppointmentId))
                     {
                         return AppointmentActionResult.Success(
-                            "Tentative appointment created successfully.",
+                            bookingResult,
                             parsedAppointmentId);
                     }
                 }
