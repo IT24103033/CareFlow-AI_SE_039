@@ -186,7 +186,8 @@ namespace CareFlowAI.API.Controllers
                 return BadRequest(new { message = "Prescription cannot contain duplicate medicine lines." });
 
             // Verify patient exists
-            if (!await _context.PatientProfiles.AnyAsync(p => p.Id == dto.PatientId))
+            var patient = await _context.PatientProfiles.FindAsync(dto.PatientId);
+            if (patient == null)
                 return NotFound(new { message = $"Patient {dto.PatientId} not found." });
 
             // Verify triage record exists and get severity
@@ -230,7 +231,7 @@ namespace CareFlowAI.API.Controllers
             }).ToList();
 
             // ── Run AI Validation/Safety Agent ────────────────────────────────
-            var safetyResult = _aiService.RunSafetyCheck(prescriptionItems, triage.SeverityLevel);
+            var safetyResult = _aiService.RunSafetyCheck(prescriptionItems, triage.SeverityLevel, patient);
 
             prescription.AiSafetyStatus     = safetyResult.Verdict;
             prescription.AiSafetyCheckResult = safetyResult.ResultJson;

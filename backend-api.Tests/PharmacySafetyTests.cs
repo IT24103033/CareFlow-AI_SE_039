@@ -385,9 +385,10 @@ public class PharmacySafetyTests
         };
 
         var service = new PharmacyAiService();
+        var patient = new PatientProfile { FullName = "Test Patient", MedicalHistorySummary = "No known allergies." };
 
-        var resultAW = service.RunSafetyCheck(itemsAW, "High");
-        var resultWA = service.RunSafetyCheck(itemsWA, "High");
+        var resultAW = service.RunSafetyCheck(itemsAW, "High", patient);
+        var resultWA = service.RunSafetyCheck(itemsWA, "High", patient);
 
         // Either ordering must detect the Aspirin+Warfarin interaction
         Assert.Contains("Warning", resultAW.Verdict + resultWA.Verdict);
@@ -403,19 +404,20 @@ public class PharmacySafetyTests
         var antacid = new Medicine { Name = "Antacid 150mg",       Category = "Antacid",    StockQuantity = 50, ExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(90)) };
 
         var service = new PharmacyAiService();
+        var patient = new PatientProfile { FullName = "Test Patient", MedicalHistorySummary = "None" };
 
         // Both orderings must produce a warning
         var resultCA = service.RunSafetyCheck(new List<PrescriptionItem>
         {
             new() { Medicine = cipro,   Quantity = 1, Dosage = "1 tablet" },
             new() { Medicine = antacid, Quantity = 1, Dosage = "1 tablet" }
-        }, "Low");
+        }, "Low", patient);
 
         var resultAC = service.RunSafetyCheck(new List<PrescriptionItem>
         {
             new() { Medicine = antacid, Quantity = 1, Dosage = "1 tablet" },
             new() { Medicine = cipro,   Quantity = 1, Dosage = "1 tablet" }
-        }, "Low");
+        }, "Low", patient);
 
         // At least one ordering must hit the rule
         Assert.True(resultCA.ResultJson.Contains("Ciprofloxacin") || resultAC.ResultJson.Contains("Ciprofloxacin"),

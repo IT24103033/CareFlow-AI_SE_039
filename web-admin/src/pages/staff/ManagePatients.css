@@ -107,6 +107,8 @@
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .admit-btn {
@@ -206,7 +208,7 @@
   position: absolute;
   bottom: 80px;
   right: 0;
-  width: 300px;
+  width: 360px;
   background: white;
   border-radius: 12px;
   padding: 20px;
@@ -243,4 +245,117 @@
   padding-top: 10px;
   border-top: 1px solid #eee;
   font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.ai-error {
+  color: #b42318;
+  font-size: 13px;
+  margin: 0;
+}
+
+.records-hint {
+  color: var(--text-light);
+  margin: 0 0 20px 0;
+  font-size: 14px;
+}
+
+.danger-btn {
+  background: #fff;
+  color: #b42318;
+  border: 1px solid #fda29b;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.danger-btn:hover {
+  background: #fef3f2;
+}
+
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-stat-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-stat-card span {
+  font-size: 13px;
+  color: var(--text-light);
+}
+
+.admin-stat-card strong {
+  font-size: 28px;
+  color: var(--text-dark);
+}
+
+.patient-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.patient-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.patient-edit-form input,
+.patient-edit-form select,
+.patient-edit-form textarea {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+/* Basic Table Styles */
+.table-wrapper {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.patients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.patients-table th {
+  background: #f8fafc;
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 13px;
+  color: #64748b;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.patients-table td {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 14px;
+}
+
+.patients-table tr:last-child td {
+  border-bottom: none;
 }

@@ -66,6 +66,16 @@ class TriageService {
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
+    
+    if (response.statusCode == 400) {
+      try {
+        final errJson = jsonDecode(response.body);
+        if (errJson['error'] == 'EMERGENCY_DETECTED') {
+          throw HttpException(errJson['message']);
+        }
+      } catch (_) {}
+    }
+    
     throw HttpException(
         'Submit triage failed (${response.statusCode}): ${response.body}');
   }

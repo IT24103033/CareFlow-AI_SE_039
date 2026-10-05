@@ -42,6 +42,8 @@
 
 .triage-warning { padding: 12px 16px; background: #fff5df; border-radius: 8px; color: #704e13; }
 .triage-warning h3 { margin-top: 0; }
+.triage-appointment-notice { padding: 12px 16px; background: #e0f2fe; border: 1px solid #7dbad8; border-radius: 8px; color: #1e4a6a; margin: 16px 0; }
+.triage-appointment-notice code { font-size: 12px; background: #cce8f4; padding: 2px 6px; border-radius: 4px; }
 .triage-plan-steps { padding-left: 22px; }
 .triage-plan-steps li { margin: 10px 0; }
 .triage-plan-steps span { font-size: 12px; color: #586c80; }

@@ -169,7 +169,7 @@ namespace CareFlowAI.API.Services
         /// <param name="items">PrescriptionItems with their resolved Medicine objects.</param>
         /// <param name="triageSeverity">Severity from the linked TriageRecord ("Low"|"Medium"|"High"|"Critical").</param>
         /// <returns>A SafetyResult containing the verdict and details.</returns>
-        public SafetyResult RunSafetyCheck(IList<PrescriptionItem> items, string triageSeverity)
+        public SafetyResult RunSafetyCheck(IList<PrescriptionItem> items, string triageSeverity, PatientProfile patient)
         {
             var warnings = new List<string>();
             var errors   = new List<string>();
@@ -177,6 +177,21 @@ namespace CareFlowAI.API.Services
 
             var medicines = items.Select(i => i.Medicine).ToList();
             var medicineNames = medicines.Select(m => m.Name).ToList();
+
+            // ── Check 6: Allergies ─────────────────────────────────────────────
+            if (patient != null && !string.IsNullOrWhiteSpace(patient.MedicalHistorySummary))
+            {
+                var historyLower = patient.MedicalHistorySummary.ToLowerInvariant();
+                foreach (var med in medicines)
+                {
+                    var medBaseName = med.Name.Split(' ')[0].ToLowerInvariant();
+                    if (historyLower.Contains(medBaseName))
+                    {
+                        errors.Add($"🚫 ALLERGY ALERT: Patient record indicates potential allergy to {medBaseName}. Prescribing {med.Name} is blocked.");
+                        blocked = true;
+                    }
+                }
+            }
 
             // ── Check 1: Drug-drug interactions ────────────────────────────────
             for (int i = 0; i < medicines.Count; i++)

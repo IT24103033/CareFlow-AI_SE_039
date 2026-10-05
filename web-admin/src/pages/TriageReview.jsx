@@ -75,7 +75,14 @@ export default function TriageReview({ api }) {
         </footer>}
       </section>
       {selected ? <CaseDetail key={selected} id={selected} api={activeApi} onDecision={decision => {
-        setNotice(`${label(decision)} recorded. This decision does not confirm an appointment.`); reload();
+        setNotice(
+          decision === 'Approved'
+            ? `Approved. The tentative appointment has been confirmed.`
+            : decision === 'Rejected'
+            ? `Rejected. The tentative appointment has been cancelled.`
+            : `${label(decision)} recorded.`
+        );
+        reload();
       }} /> : <section className="triage-panel triage-empty"><h2>Select a submission</h2><p>Patient details, the AI assessment and review actions will appear here.</p></section>}
     </div>
   </main>;
@@ -134,6 +141,41 @@ function CaseDetail({ id, api, onDecision }) {
           <img src={record.imageUrl} alt="Triage attachment" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid var(--border)' }} />
         </div>
       )}
+      
+      {record.safetyVerdict && (
+        <div className="triage-warning" style={{ marginTop: '12px', marginBottom: '20px' }}>
+          <h4>Safety & Context Findings</h4>
+          <p><strong>Verdict:</strong> {record.safetyVerdict}</p>
+          <p>{record.safetySummary}</p>
+        </div>
+      )}
+
+      {record.schedulingOutcome && (
+        <div className="triage-appointment-notice">
+          <strong>🗓 Scheduling Outcome:</strong> {record.schedulingOutcome}
+          {record.appointmentDetails && (
+            <div style={{ marginTop: '8px' }}>
+              <p><strong>Doctor:</strong> {record.appointmentDetails.doctorName}</p>
+              <p><strong>Date & Time:</strong> {record.appointmentDetails.appointmentDate} at {record.appointmentDetails.startTime}</p>
+              <p><strong>Status:</strong> <Badge value={record.appointmentDetails.status} /></p>
+              {record.appointmentDetails.status === 'Tentative' && (
+                <p className="triage-muted" style={{ marginTop: '8px' }}>This slot is held pending your approval. Approving this case will confirm the appointment; rejecting will cancel it.</p>
+              )}
+            </div>
+          )}
+          {record.schedulingOutcome !== 'Booked' && record.schedulingOutcome !== 'Pending' && (
+             <p className="triage-muted" style={{ marginTop: '8px' }}>Manual follow-up is required for scheduling.</p>
+          )}
+        </div>
+      )}
+      
+      {record.notificationOutcome && (
+        <div className="triage-appointment-notice" style={{ marginTop: '12px' }}>
+          <h4>Actual Execution & Notification</h4>
+          <p>{record.notificationOutcome}</p>
+        </div>
+      )}
+
       <h3>AI assessment</h3>
       <p className="triage-muted">Decision support — review the assessment before recording a decision.</p>
       {plan ? <dl><dt>Suggested specialty</dt><dd>{plan.suggestedspecialist}</dd><dt>Recommended action</dt><dd>{plan.recommendedaction}</dd><dt>Assessment summary</dt><dd>{plan.rationale}</dd><dt>Analysis method</dt><dd>{record.analysisMethod || plan.analysismethod || 'Not recorded'}</dd></dl>
@@ -185,7 +227,7 @@ function CaseDetail({ id, api, onDecision }) {
           <option value="Approved">Approve assessment</option><option value="Rejected">Reject assessment</option><option value="RevisionRequested">Request revision</option>
         </select></label>
         <label>Review notes {decision === 'Approved' ? '(optional)' : '(required)'}<textarea value={notes} onChange={event => setNotes(event.target.value)} maxLength={2000} required={decision !== 'Approved'} disabled={saving || conflict} rows={4} /></label>
-        <p className="triage-muted">Approval records acceptance of the assessment. Appointment confirmation is a separate workflow step.</p>
+        <p className="triage-muted">Approval records acceptance of the assessment. If a tentative appointment exists, it will be automatically confirmed; rejecting cancels it.</p>
         {decision === 'RevisionRequested' && <p className="triage-muted">Revision pauses this case for follow-up; it does not automatically rerun the agent.</p>}
         <button className="triage-primary" disabled={saving || conflict}>{saving ? 'Saving decision…' : 'Save decision'}</button>
       </form> : <p className="triage-muted">This case is not awaiting a review decision.</p>}

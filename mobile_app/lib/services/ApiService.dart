@@ -1,11 +1,22 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/PatientProfile.dart';
 import '../models/Ward.dart';
+import 'auth_service.dart';
 
 class ApiService {
-  // Use localhost for Chrome/Edge web target
-  static const String baseUrl = 'http://localhost:5241/api';
+  static final String baseUrl = Platform.isAndroid
+      ? 'http://10.0.2.2:5241/api'
+      : 'http://localhost:5241/api';
+
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await AuthService.getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Login: searches for a patient by full name as their identifier
   Future<PatientProfile?> loginPatient(String fullName) async {
@@ -78,7 +89,7 @@ class ApiService {
         queryParameters: queryParameters,
       );
 
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: await _authHeaders());
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as List<dynamic>;
@@ -113,7 +124,7 @@ class ApiService {
         },
       );
 
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: await _authHeaders());
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as List<dynamic>;
@@ -141,9 +152,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/Appointments/tentative'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await _authHeaders(),
         body: json.encode({
           'doctorId': doctorId,
           'patientId': patientId,
@@ -165,6 +174,29 @@ class ApiService {
     } catch (e) {
       throw Exception(
         'Failed to create appointment: $e',
+      );
+    }
+  }
+
+  /// Get all appointments for a patient.
+  Future<List<dynamic>> getPatientAppointments(String patientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Appointments/patient/$patientId'),
+        headers: await _authHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as List<dynamic>;
+      }
+
+      throw Exception(
+        'Failed to load appointments '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to load appointments: $e',
       );
     }
   }

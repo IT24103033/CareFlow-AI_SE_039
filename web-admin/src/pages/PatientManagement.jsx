@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { apiFetch } from '../services/api';
 
-const PatientManagement = () => {
+const PatientManagement = ({ onRegistered }) => {
     const [formData, setFormData] = useState({
         fullName: '',
         dateOfBirth: '',
@@ -39,7 +39,8 @@ const PatientManagement = () => {
 
             if (response.ok) {
                 setMessage('Patient registered successfully!');
-                setFormData({ fullName: '', dateOfBirth: '', bloodGroup: '', medicalHistorySummary: '' }); // Clear form
+                setFormData({ fullName: '', dateOfBirth: '', bloodGroup: '', medicalHistorySummary: '' });
+                if (typeof onRegistered === 'function') onRegistered();
             } else {
                 setMessage('Error registering patient.');
             }

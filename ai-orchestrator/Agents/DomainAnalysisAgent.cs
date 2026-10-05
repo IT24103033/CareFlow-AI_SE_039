@@ -20,14 +20,16 @@ namespace CareFlowAI.Orchestrator.Agents
     public class AgentInput
     {
         public Guid PatientId { get; set; }
+        public string PatientName { get; set; } = string.Empty;
         public string CurrentSymptoms { get; set; } = string.Empty;
     }
 
     public class AgentOutput
     {
-        public string RiskLevel { get; set; } = string.Empty; 
+        public string RiskLevel { get; set; } = string.Empty;
         public string[] FlaggedFactors { get; set; } = Array.Empty<string>();
-        public string RecommendedWardType { get; set; } = string.Empty; 
+        public string RecommendedWardType { get; set; } = string.Empty;
+        public string PatientHistoryUsed { get; set; } = string.Empty;
     }
 
     public interface IDomainAnalysisAgent
@@ -35,58 +37,59 @@ namespace CareFlowAI.Orchestrator.Agents
         Task<AgentOutput> AnalyzeRiskAsync(AgentInput input, System.Threading.CancellationToken cancellationToken = default);
     }
 
-    public class AgentPatientProfile
-    {
-        public string MedicalHistorySummary { get; set; } = string.Empty;
-    }
-
-    public interface IDomainContextAdapter
-    {
-        Task<AgentPatientProfile?> GetPatientProfileAsync(Guid patientId, System.Threading.CancellationToken cancellationToken);
-    }
-
     public class DomainAnalysisAgent : IDomainAnalysisAgent
     {
-        private readonly IDomainContextAdapter _contextAdapter;
+        private readonly IPatientHistoryTool _historyTool;
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
-        private readonly string _modelName;
+        private readonly string _model;
 
-        public DomainAnalysisAgent(IDomainContextAdapter contextAdapter, string apiKey, string modelName, HttpClient? httpClient = null)
+        public DomainAnalysisAgent(string apiKey, IPatientHistoryTool historyTool, string? model = null, HttpClient? httpClient = null)
         {
-            _contextAdapter = contextAdapter;
+            _historyTool = historyTool ?? new FetchPatientHistory();
             _httpClient = httpClient ?? new HttpClient();
             _apiKey = apiKey;
-            _modelName = modelName;
+            _model = string.IsNullOrWhiteSpace(model) ? "gemini-flash-latest" : model;
         }
 
         public async Task<AgentOutput> AnalyzeRiskAsync(AgentInput input, System.Threading.CancellationToken cancellationToken = default)
         {
-            var profile = await _contextAdapter.GetPatientProfileAsync(input.PatientId, cancellationToken);
-            string medicalHistory = profile?.MedicalHistorySummary ?? "Error: Patient not found.";
+            string medicalHistory = "No history available.";
+            try
+            {
+                medicalHistory = await _historyTool.ExecuteAsync(input.PatientName);
+            }
+            catch { /* fall through with default */ }
 
             string systemPrompt = $@"
-                You are a medical domain analysis AI.
-                Current Symptoms: {input.CurrentSymptoms}
-                Patient History: {medicalHistory}
-                
-                Analyze the risk and return strictly valid JSON matching this schema exactly. Do not use markdown blocks.
-                {{
-                    ""riskLevel"": ""High|Medium|Low"",
-                    ""flaggedFactors"": [""reason 1"", ""reason 2""],
-                    ""recommendedWardType"": ""ICU|General""
-                }}";
+You are a medical domain analysis AI for hospital ward triage.
 
-            // Format the request for the Gemini API
+Patient name: {input.PatientName}
+Current symptoms: {input.CurrentSymptoms}
+Stored patient history from the hospital record:
+{medicalHistory}
+
+Rules:
+- Base the recommendation on BOTH current symptoms AND the stored history.
+- flaggedFactors must cite real items from symptoms and/or history (conditions, allergies, blood group constraints, chronic disease).
+- Do not invent symptoms the patient did not report.
+- If history is missing, include that as a flagged factor and rely on symptoms only.
+- Return strictly valid JSON matching this schema. Do not use markdown.
+{{
+    ""riskLevel"": ""High|Medium|Low"",
+    ""flaggedFactors"": [""reason 1"", ""reason 2""],
+    ""recommendedWardType"": ""ICU|General""
+}}";
+
             var requestBody = new
             {
                 contents = new[]
                 {
                     new { parts = new[] { new { text = systemPrompt } } }
                 },
-                generationConfig = new 
-                { 
-                    responseMimeType = "application/json" // Force the AI to only output JSON
+                generationConfig = new
+                {
+                    responseMimeType = "application/json"
                 }
             };
 
@@ -96,45 +99,59 @@ namespace CareFlowAI.Orchestrator.Agents
             {
                 if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey.Contains("YOUR_GEMINI_API_KEY"))
                 {
-                    throw new DomainAnalysisException("DOMAIN_NOT_CONFIGURED", "Gemini API key is not configured.");
-                }
-                
-                if (string.IsNullOrWhiteSpace(_modelName))
-                {
-                    throw new DomainAnalysisException("DOMAIN_NOT_CONFIGURED", "Gemini Model name is not configured.");
+                    throw new InvalidOperationException("Gemini API key is not configured. Set Gemini:ApiKey in appsettings.Development.json.");
                 }
 
-                // Send the request over the internet
-                string endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{_modelName}:generateContent?key={_apiKey}";
-                HttpResponseMessage response;
-                // Retry only transient provider failures, within the caller's deadline.
-                for (var attempt = 1; ; attempt++)
+                if (_apiKey.StartsWith("sk-", StringComparison.Ordinal))
                 {
-                    response = await _httpClient.PostAsync(endpoint, content, cancellationToken);
-                    var status = (int)response.StatusCode;
-                    if (attempt >= 3 || !(status == 429 || status == 502 || status == 503 || status == 504))
-                        break;
-                    response.Dispose();
-                    await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+                    throw new InvalidOperationException("GeminiApiKey is an OpenAI key (sk-...). This agent calls Google Gemini, which needs a Google AI Studio key.");
                 }
-                using var responseLifetime = response;
-                
-                if (!response.IsSuccessStatusCode)
+
+                int maxRetries = 2;
+                HttpResponseMessage? response = null;
+
+                for (int i = 0; i <= maxRetries; i++)
                 {
-                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API error ({(int)response.StatusCode} {response.ReasonPhrase})");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent");
+                    request.Headers.TryAddWithoutValidation("x-goog-api-key", _apiKey);
+                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                    response = await _httpClient.SendAsync(request, cancellationToken);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        break;
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        if (i == maxRetries) break;
+                        await Task.Delay(100 * (i + 1), cancellationToken);
+                    }
+                    else
+                    {
+                        break; // Break on other errors
+                    }
+                }
+
+                if (response == null || !response.IsSuccessStatusCode)
+                {
+                    var statusCode = response != null ? (int)response.StatusCode : 500;
+                    var reasonPhrase = response?.ReasonPhrase ?? "Unknown";
+                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API error ({statusCode} {reasonPhrase})");
                 }
 
                 var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
                 var jsonDoc = JsonDocument.Parse(responseString);
-                
-                // Navigate Gemini's response JSON tree to get the actual text
+
                 var llmResponse = jsonDoc.RootElement
                     .GetProperty("candidates")[0]
                     .GetProperty("content")
                     .GetProperty("parts")[0]
                     .GetProperty("text").GetString();
 
-                return ValidateAndParseOutput(llmResponse ?? "{}");
+                var parsed = ValidateAndParseOutput(llmResponse ?? "{}");
+                parsed.PatientHistoryUsed = medicalHistory;
+                return parsed;
             }
             catch (OperationCanceledException)
             {
@@ -150,23 +167,23 @@ namespace CareFlowAI.Orchestrator.Agents
             }
             catch (Exception ex)
             {
-                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", $"Failed to process provider response: {ex.GetType().Name}");
+                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", $"AI processing failed: {ex.Message}");
             }
         }
 
         private AgentOutput ValidateAndParseOutput(string llmResponse)
         {
             AgentOutput? result;
-            try 
+            try
             {
-                result = JsonSerializer.Deserialize<AgentOutput>(llmResponse, new JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true 
+                result = JsonSerializer.Deserialize<AgentOutput>(llmResponse, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
                 });
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", "Validation Failed: AI returned malformed output.");
+                throw new DomainAnalysisException("DOMAIN_INVALID_OUTPUT", $"AI Parsing Failed: {ex.Message}");
             }
 
             if (result == null)
@@ -188,7 +205,7 @@ namespace CareFlowAI.Orchestrator.Agents
             result.RecommendedWardType = result.RecommendedWardType.Equals("ICU", StringComparison.OrdinalIgnoreCase) ? "ICU" : "General";
 
             if (result.RiskLevel == "High" && result.RecommendedWardType != "ICU")
-                result.RecommendedWardType = "ICU"; 
+                result.RecommendedWardType = "ICU";
 
             return result;
         }
