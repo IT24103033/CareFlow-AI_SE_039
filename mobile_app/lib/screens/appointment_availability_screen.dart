@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/ApiService.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 class AppointmentAvailabilityScreen extends StatefulWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/ApiService.dart';
-import '../models/Ward.dart';
+import '../services/api_service.dart';
+
 import '../services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -13,14 +13,10 @@ class MobileWardStatus extends StatefulWidget {
 }
 
 class _MobileWardStatusState extends State<MobileWardStatus> {
-  final ApiService _apiService = ApiService();
-  late Future<List<Ward>> _wardsFuture;
   Map<String, dynamic>? _myAdmission;
-
   @override
   void initState() {
     super.initState();
-    _wardsFuture = _apiService.fetchWards();
     _loadMyAdmission();
   }
 
@@ -51,21 +47,7 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
     }
   }
 
-  Color _wardColor(Ward ward) {
-    final pct = ward.capacity > 0 ? ward.occupiedBeds / ward.capacity : 1.0;
-    if (pct >= 1.0) return Colors.red.shade400;
-    if (pct >= 0.8) return Colors.orange.shade400;
-    return const Color(0xFF0AB39C);
-  }
 
-  IconData _wardIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'icu': return Icons.monitor_heart_rounded;
-      case 'maternity': return Icons.pregnant_woman_rounded;
-      case 'pediatrics': return Icons.child_care_rounded;
-      default: return Icons.bed_rounded;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,30 +135,6 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _StatBadge(this.label, this.value, this.icon, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: Colors.black45)),
-      ],
     );
   }
 }

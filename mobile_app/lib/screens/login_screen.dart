@@ -1,12 +1,8 @@
-// Component B – Login Screen (Authenticated)
-// CareFlow AI healthcare aesthetic:
-// Navy header, white card form, teal accents, trust badges.
-
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../theme/app_theme.dart';
-import 'register_screen.dart';
-import 'home_screen.dart';
+import '../models/patient_profile.dart';
+import 'patient_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,361 +11,236 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  final _formKey       = GlobalKey<FormState>();
-  final _usernameCtrl  = TextEditingController();
-  final _passwordCtrl  = TextEditingController();
-
-  bool    _isLoading      = false;
-  bool    _obscurePassword = true;
+class _LoginScreenState extends State<LoginScreen> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
   String? _errorMessage;
 
-  late AnimationController _animCtrl;
-  late Animation<double>   _slideAnim;
-  late Animation<double>   _fadeAnim;
+  final _primaryTeal = const Color(0xFF0AB39C);
 
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    _slideAnim = Tween<double>(begin: 40, end: 0).animate(
-        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
-    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeIn);
-    _animCtrl.forward();
-  }
+  Future<void> _handleLogin() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
 
-  @override
-  void dispose() {
-    _animCtrl.dispose();
-    _usernameCtrl.dispose();
-    _passwordCtrl.dispose();
-    super.dispose();
-  }
-
-  // ── Login handler ──────────────────────────────────────────────────────────
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter both username and password');
+      return;
+    }
 
     setState(() {
-      _isLoading    = true;
+      _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final username = _usernameCtrl.text.trim();
-      final password = _passwordCtrl.text;
-
-      await AuthService.login(
-        username: username,
-        password: password,
-      );
+      final loginResult = await AuthService.login(username: username, password: password);
+      
+      final fullName = loginResult['user']['fullName'] ?? loginResult['user']['username'];
+      
+      final api = ApiService();
+      final PatientProfile? patient = await api.loginPatient(fullName);
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+
+      if (patient != null) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => PatientHomeScreen(patient: patient),
+          ),
+        );
+      } else {
+        setState(() {
+          _errorMessage = 'No patient profile found for this user.\nPlease contact the hospital reception.';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      String msg = e.toString();
-      if (msg.startsWith('Exception: ')) msg = msg.substring(11);
-      if (msg.startsWith('HttpException: ')) msg = msg.substring(15);
-      setState(() => _errorMessage = msg);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.navyDark,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Column(
-          children: [
-            // ── Navy header ─────────────────────────────────────────────────
-            _buildHeader(),
-
-            // ── White card form ─────────────────────────────────────────────
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: AppTheme.pageWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                  child: AnimatedBuilder(
-                    animation: _slideAnim,
-                    builder: (context, child) => Transform.translate(
-                      offset: Offset(0, _slideAnim.value),
-                      child: child,
-                    ),
-                    child: _buildCard(),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Header ─────────────────────────────────────────────────────────────────
-  Widget _buildHeader() {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Logo row
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.teal,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.add, color: Colors.white, size: 26),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('CareFlow AI',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3)),
-                    Text('SMART DIGITAL HOSPITAL',
-                        style: TextStyle(
-                            color: AppTheme.teal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.5)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            const Text('Welcome back',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            const Text('Access your patient health portal',
-                style: TextStyle(color: Color(0xFFAEC0D8), fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── White form card ─────────────────────────────────────────────────────────
-  Widget _buildCard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Secure badge ────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.tealLight,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: const [
-              Icon(Icons.verified_user_outlined,
-                  color: AppTheme.teal, size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Secure Health Login',
-                        style: TextStyle(
-                            color: AppTheme.teal,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13)),
-                    Text('End-to-end encrypted · HIPAA compliant',
-                        style: TextStyle(
-                            color: Color(0xFF2C7A7B), fontSize: 11)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // ── Form ──────────────────────────────────────────────────────────
-        Form(
-          key: _formKey,
+      backgroundColor: const Color(0xFFF0FAFA),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _fieldLabel('Username or Email'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _usernameCtrl,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                decoration: AppTheme.inputDecoration(
-                  hint: 'Enter your username or email',
-                  icon: Icons.person_outline,
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Username or email is required';
-                  return null;
-                },
+              // Logo + Title
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: _primaryTeal,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.local_hospital, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('CareFlow AI',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0AB39C))),
+                      Text('Patient Portal',
+                          style: TextStyle(fontSize: 13, color: Colors.black54)),
+                    ],
+                  ),
+                ],
               ),
+
+              const SizedBox(height: 40),
+
+              // Illustration placeholder
+              Center(
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.health_and_safety_rounded,
+                      size: 80, color: _primaryTeal.withValues(alpha: 0.6)),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              const Text('Welcome Back',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF212529))),
+              const SizedBox(height: 6),
+              const Text('Sign in to access your medical profile.',
+                  style: TextStyle(fontSize: 14, color: Colors.black54)),
+
+              const SizedBox(height: 32),
+
+              // Username input
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE0E0E0)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
+                ),
+                child: TextField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    hintText: 'Username or Email',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    prefixIcon: Icon(Icons.person_outline, color: Color(0xFF0AB39C)),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                ),
+              ),
+
               const SizedBox(height: 16),
 
-              _fieldLabel('Password'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: _obscurePassword,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                decoration: AppTheme.inputDecoration(
-                  hint: 'Enter your password',
-                  icon: Icons.lock_outline,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: AppTheme.textLight,
-                      size: 20,
-                    ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
+              // Password input
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE0E0E0)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ],
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Password is required';
-                  return null;
-                },
+                child: TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    hintStyle: TextStyle(color: Colors.black38),
+                    prefixIcon: Icon(Icons.lock_outline, color: Color(0xFF0AB39C)),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onSubmitted: (_) => _handleLogin(),
+                ),
               ),
-              const SizedBox(height: 8),
 
-              // ── Error banner ─────────────────────────────────────────────
+              // Error message
               if (_errorMessage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.danger.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: AppTheme.danger.withValues(alpha: 0.3)),
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: AppTheme.danger, size: 18),
+                      Icon(Icons.error_outline, color: Colors.red.shade400, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(_errorMessage!,
-                            style: const TextStyle(
-                                color: AppTheme.danger, fontSize: 12)),
+                            style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
                       ),
                     ],
                   ),
                 ),
               ],
 
-              const SizedBox(height: 22),
+              const SizedBox(height: 28),
 
-              // ── Sign in button ───────────────────────────────────────────
+              // Login button
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
+                  onPressed: _isLoading ? null : _handleLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryTeal,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
                   child: _isLoading
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Text('Sign In Securely'),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 20),
 
-              // ── Register link ────────────────────────────────────────────
+              const SizedBox(height: 24),
               Center(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(
-                          builder: (_) => const RegisterScreen())),
-                  child: RichText(
-                    text: const TextSpan(
-                      text: 'New patient? ',
-                      style:
-                          TextStyle(color: AppTheme.textMid, fontSize: 13),
-                      children: [
-                        TextSpan(
-                          text: 'Create Account',
-                          style: TextStyle(
-                              color: AppTheme.teal,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Text(
+                  'Not registered? Contact hospital reception.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ),
             ],
           ),
         ),
-
-        const SizedBox(height: 32),
-
-        // ── Trust badges ──────────────────────────────────────────────────
-        _buildTrustBadges(),
-      ],
+      ),
     );
   }
-
-  Widget _fieldLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-            color: AppTheme.textDark,
-            fontSize: 13,
-            fontWeight: FontWeight.w600),
-      );
-
-  Widget _buildTrustBadges() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _badge(Icons.verified_user, 'HIPAA'),
-        const SizedBox(width: 24),
-        _badge(Icons.lock_outline, '256-bit\nSSL'),
-        const SizedBox(width: 24),
-        _badge(Icons.workspace_premium_outlined, 'ISO\n27001'),
-      ],
-    );
-  }
-
-  Widget _badge(IconData icon, String label) => Column(
-        children: [
-          Icon(icon, color: AppTheme.teal, size: 20),
-          const SizedBox(height: 4),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: AppTheme.textLight,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600)),
-        ],
-      );
 }

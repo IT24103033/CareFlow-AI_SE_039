@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../models/PatientProfile.dart';
-import '../models/Ward.dart';
+import '../models/patient_profile.dart';
+import '../models/ward.dart';
 import 'auth_service.dart';
 
 class ApiService {

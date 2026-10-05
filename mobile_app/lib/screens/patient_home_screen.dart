@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/PatientProfile.dart';
-import 'MobileWardStatus.dart';
-import 'LoginScreen.dart';
+import '../models/patient_profile.dart';
+import 'mobile_ward_status.dart';
+import 'login_screen.dart';
 
 class PatientHomeScreen extends StatelessWidget {
   final PatientProfile patient;

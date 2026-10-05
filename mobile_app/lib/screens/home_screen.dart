@@ -8,7 +8,7 @@ import 'submit_triage_screen.dart';
 import 'triage_dashboard_screen.dart';
 import 'my_prescriptions_screen.dart';
 import 'login_screen.dart';
-import 'MobileWardStatus.dart';
+import 'mobile_ward_status.dart';
 import 'patient_profile_screen.dart';
 import 'medical_profile_screen.dart';
 

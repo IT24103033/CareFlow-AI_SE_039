@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/ApiService.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'package:http/http.dart' as http;
@@ -13,7 +13,7 @@ class PatientProfileScreen extends StatefulWidget {
 }
 
 class _PatientProfileScreenState extends State<PatientProfileScreen> {
-  final ApiService _apiService = ApiService();
+
   bool _isLoading = true;
   String _patientId = '';
   

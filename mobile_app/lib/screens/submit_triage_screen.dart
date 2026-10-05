@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/triage_repository.dart';
 import '../theme/app_theme.dart';
-import '../services/ApiService.dart';
+import '../services/api_service.dart';
 
 class SubmitTriageScreen extends StatefulWidget {
   final TriageRepository repository;

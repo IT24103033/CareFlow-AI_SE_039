@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/PatientProfile.dart';
-import '../services/ApiService.dart';
+import '../models/patient_profile.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class MedicalProfileScreen extends StatefulWidget {
