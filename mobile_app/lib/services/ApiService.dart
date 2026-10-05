@@ -49,6 +49,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/Wards'),
+        headers: await _authHeaders(),
       );
 
       if (response.statusCode == 200) {

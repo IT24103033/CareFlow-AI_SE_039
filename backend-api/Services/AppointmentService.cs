@@ -35,7 +35,8 @@ namespace CareFlowAI.API.Services
                     ApprovalStatus = a.ApprovalStatus,
                     ApprovedByDoctorId = a.ApprovedByDoctorId,
                     ApprovedAt = a.ApprovedAt,
-                    CreatedAt = a.CreatedAt
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .ToListAsync();
         }
@@ -59,7 +60,8 @@ namespace CareFlowAI.API.Services
                     ApprovalStatus = a.ApprovalStatus,
                     ApprovedByDoctorId = a.ApprovedByDoctorId,
                     ApprovedAt = a.ApprovedAt,
-                    CreatedAt = a.CreatedAt
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .FirstOrDefaultAsync();
         }
@@ -85,7 +87,8 @@ namespace CareFlowAI.API.Services
                     ApprovalStatus = a.ApprovalStatus,
                     ApprovedByDoctorId = a.ApprovedByDoctorId,
                     ApprovedAt = a.ApprovedAt,
-                    CreatedAt = a.CreatedAt
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .ToListAsync();
         }
@@ -208,7 +211,8 @@ namespace CareFlowAI.API.Services
                     ApprovalStatus = appointment.ApprovalStatus,
                     ApprovedByDoctorId = appointment.ApprovedByDoctorId,
                     ApprovedAt = appointment.ApprovedAt,
-                    CreatedAt = appointment.CreatedAt
+                    CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
                 };
             }
             catch (PostgresException ex) when (ex.SqlState == "40001")
@@ -274,7 +278,8 @@ namespace CareFlowAI.API.Services
                 ApprovalStatus = appointment.ApprovalStatus,
                 ApprovedByDoctorId = appointment.ApprovedByDoctorId,
                 ApprovedAt = appointment.ApprovedAt,
-                CreatedAt = appointment.CreatedAt
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
             };
         }
 
@@ -321,7 +326,8 @@ namespace CareFlowAI.API.Services
                 ApprovalStatus = appointment.ApprovalStatus,
                 ApprovedByDoctorId = appointment.ApprovedByDoctorId,
                 ApprovedAt = appointment.ApprovedAt,
-                CreatedAt = appointment.CreatedAt
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
             };
         }
 
@@ -354,7 +360,8 @@ namespace CareFlowAI.API.Services
                 ApprovalStatus = appointment.ApprovalStatus,
                 ApprovedByDoctorId = appointment.ApprovedByDoctorId,
                 ApprovedAt = appointment.ApprovedAt,
-                CreatedAt = appointment.CreatedAt
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
             };
         }
 

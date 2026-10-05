@@ -25,5 +25,7 @@ namespace CareFlowAI.API.DTOs
         public DateTime? ApprovedAt { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public string? Reason { get; set; }
     }
 }

@@ -17,7 +17,7 @@ namespace CareFlowAI.API.Controllers
         }
 
         // GET: api/wards
-        [Authorize(Roles = "Doctor,Staff,Admin")]
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet]
         public async Task<IActionResult> GetWards()
         {

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/ApiService.dart';
 import '../models/Ward.dart';
+import '../services/auth_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class MobileWardStatus extends StatefulWidget {
   const MobileWardStatus({super.key});
@@ -12,11 +15,40 @@ class MobileWardStatus extends StatefulWidget {
 class _MobileWardStatusState extends State<MobileWardStatus> {
   final ApiService _apiService = ApiService();
   late Future<List<Ward>> _wardsFuture;
+  Map<String, dynamic>? _myAdmission;
 
   @override
   void initState() {
     super.initState();
     _wardsFuture = _apiService.fetchWards();
+    _loadMyAdmission();
+  }
+
+  Future<void> _loadMyAdmission() async {
+    try {
+      final token = await AuthService.getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        final response = await http.get(
+          Uri.parse('${ApiService.baseUrl}/PatientProfiles/me'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          }
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final admissions = data['admissions'] as List<dynamic>? ?? [];
+          final active = admissions.where((a) => a['dischargedAt'] == null).toList();
+          if (active.isNotEmpty && mounted) {
+            setState(() {
+              _myAdmission = active.first['ward'];
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading admission: $e");
+    }
   }
 
   Color _wardColor(Ward ward) {
@@ -46,133 +78,81 @@ class _MobileWardStatusState extends State<MobileWardStatus> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: FutureBuilder<List<Ward>>(
-        future: _wardsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF0AB39C)));
-          } else if (snapshot.hasError) {
-            return Center(
-                child: Text('Error: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red)));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No wards available.'));
-          }
-
-          final wards = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: wards.length,
-            itemBuilder: (context, index) {
-              final ward = wards[index];
-              final color = _wardColor(ward);
-              final pct = ward.capacity > 0
-                  ? ward.occupiedBeds / ward.capacity
-                  : 1.0;
-              final available = ward.capacity - ward.occupiedBeds;
-              final isFull = available <= 0;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header row
-                    Row(
+      body: _myAdmission == null
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.hotel_class_outlined, size: 64, color: Colors.black26),
+                  SizedBox(height: 16),
+                  Text('You are not currently admitted.',
+                      style: TextStyle(fontSize: 16, color: Colors.black54)),
+                ],
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Your Current Admission', 
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Column(
                       children: [
                         Container(
-                          width: 44,
-                          height: 44,
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xFF0AB39C).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                          child: Icon(_wardIcon(ward.wardType), color: color, size: 24),
+                          child: const Icon(Icons.bed, size: 48, color: Color(0xFF0AB39C)),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${ward.wardType} Ward',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 16,
-                                      color: Color(0xFF212529))),
-                              Text('Ward ${ward.wardNumber}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.black45)),
-                            ],
-                          ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Ward ${_myAdmission!['wardNumber']}',
+                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF212529)),
                         ),
+                        const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
+                            color: const Color(0xFF0AB39C).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            isFull ? 'FULL' : 'OPEN',
-                            style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
+                            '${_myAdmission!['wardType']} Ward',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0AB39C)),
                           ),
                         ),
+                        const SizedBox(height: 32),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.verified_user, color: Colors.green),
+                            const SizedBox(width: 8),
+                            const Text('Status: Active', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                          ],
+                        )
                       ],
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // Stats row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _StatBadge('Total', '${ward.capacity}', Icons.bed_rounded, const Color(0xFF6C757D)),
-                        _StatBadge('Occupied', '${ward.occupiedBeds}', Icons.person_rounded, Colors.orange.shade400),
-                        _StatBadge('Available', '$available', Icons.check_circle_rounded, color),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Progress bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: pct.clamp(0.0, 1.0),
-                        minHeight: 8,
-                        backgroundColor: const Color(0xFFE9ECEF),
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${(pct * 100).round()}% occupied',
-                      style:
-                          const TextStyle(fontSize: 11, color: Colors.black45),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
