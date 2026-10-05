@@ -97,11 +97,21 @@ const PrescriptionManagement = () => {
   const handleCreate = async () => {
     setCreating(true); setCreateResult(null);
     try {
+      // Clean up the Triage Record ID in case the user pasted extra text (like " Low")
+      const cleanTriageId = newPx.triageRecordId.split(' ')[0].trim();
+      const payload = { ...newPx, triageRecordId: cleanTriageId };
+
       const res = await apiFetch(`/api/prescriptions`, {
         method: 'POST',
-        body: JSON.stringify(newPx)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
+      
+      // If it's a 400 Bad Request with ASP.NET Core validation errors, format it so the UI shows the message
+      if (!res.ok && data.errors) {
+        const errorMessages = Object.values(data.errors).flat().join(' | ');
+        data.message = `Validation Error: ${errorMessages}`;
+      }
       setCreateResult({ ok: res.ok, data });
       if (res.ok) { fetchPrescriptions(); }
     } catch (e) { setCreateResult({ ok: false, data: { message: e.message } }); }
