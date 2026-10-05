@@ -1,24 +1,17 @@
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace CareFlowAI.Orchestrator.Tools
 {
-    public class FetchPatientHistory
+    /// <summary>
+    /// Kept for compatibility. The API supplies a database-backed implementation
+    /// of <see cref="IPatientHistoryTool"/> so the agent does not HTTP-call itself.
+    /// </summary>
+    public class FetchPatientHistory : IPatientHistoryTool
     {
-        private readonly HttpClient _httpClient;
-
-        public FetchPatientHistory()
+        public Task<string> ExecuteAsync(string patientName)
         {
-            _httpClient = new HttpClient();
-        }
-
-        public async Task<string> ExecuteAsync(string patientName)
-        {
-            // The agent calls API endpoint directly
-            var response = await _httpClient.GetAsync($"http://localhost:5241/api/PatientProfiles/search?name={patientName}");
-            if (!response.IsSuccessStatusCode) return "Error: Patient not found.";
-            
-            return await response.Content.ReadAsStringAsync();
+            return Task.FromResult(
+                $"No patient-history provider is configured for '{patientName}'.");
         }
     }
 }

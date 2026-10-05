@@ -146,12 +146,17 @@ class _SubmitTriageScreenState extends State<SubmitTriageScreen> {
       setState(() => _pickedImage = null);
     } catch (e) {
       if (!mounted) return;
-      setState(
-        () => _errorMessage =
-            e is TimeoutException
-                ? 'The request timed out. Your submission may still be processing. Check your triage history before submitting again.'
-                : 'Submission failed. Check your connection and try again.\n\nError: $e',
-      );
+      setState(() {
+        String msg = e.toString();
+        if (e is TimeoutException) {
+          _errorMessage = 'The request timed out. Your submission may still be processing. Check your triage history before submitting again.';
+        } else if (msg.contains('Stop.')) {
+          // Clean up "Exception:" prefix if present
+          _errorMessage = msg.replaceFirst('HttpException: ', '').replaceFirst('Exception: ', '');
+        } else {
+          _errorMessage = 'Submission failed. Check your connection and try again.\n\nError: $e';
+        }
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

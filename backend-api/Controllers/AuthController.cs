@@ -198,6 +198,7 @@ namespace CareFlowAI.API.Controllers
             var user = new User
             {
                 Username = dto.Username.Trim(),
+                FullName = string.IsNullOrWhiteSpace(dto.FullName) ? dto.Username : dto.FullName.Trim(),
                 Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.Username}@careflow.ai" : dto.Email.Trim().ToLower(),
                 Password = PasswordHasher.Hash(dto.Password),
                 Role = dto.Role,
@@ -254,6 +255,26 @@ namespace CareFlowAI.API.Controllers
                 PatientId = patient?.Id ?? user.PatientProfileId,
                 FullName = doctor?.FullName ?? patient?.FullName ?? user.Username
             });
+        }
+        // ── GET api/auth/staff ──────────────────────────────────────────────
+        [Authorize(Roles = "Admin")]
+        [HttpGet("staff")]
+        public async Task<IActionResult> GetStaff()
+        {
+            var staff = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Role == "Admin" || u.Role == "Doctor" || u.Role == "Staff")
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    Email = u.Email ?? "",
+                    u.Role,
+                    u.DoctorId
+                })
+                .ToListAsync();
+
+            return Ok(staff);
         }
     }
 }

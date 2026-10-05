@@ -19,8 +19,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
     <Using Include="Xunit" />
     <ProjectReference Include="../backend-api/CareFlowAI.API.csproj" />
+    <ProjectReference Include="../ai-orchestrator/CareFlowAI.Orchestrator.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
   </ItemGroup>
 

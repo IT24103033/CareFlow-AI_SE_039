@@ -34,9 +34,14 @@ public class TestNotificationService : INotificationService
 {
     public Task<bool> SendEmailAsync(string toEmail, string subject, string messageBody) => Task.FromResult(true);
     public Task<bool> SendSmsAsync(string phoneNumber, string message) => Task.FromResult(true);
-    public Task<bool> DispatchPrescriptionNotificationAsync(string patientName, string contact, string prescriptionSummary, string channel = "Both")
+    public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
+        string patientName,
+        string? patientEmail,
+        string? patientPhone,
+        string prescriptionSummary,
+        string channel = "Both")
     {
-        return Task.FromResult(true);
+        return Task.FromResult((true, (string?)null));
     }
 }
 
@@ -68,7 +73,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                options.UseInMemoryDatabase(DatabaseName);
+                options.UseInMemoryDatabase(DatabaseName)
+                       .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
             });
 
             // Replace assessment client stub
@@ -77,8 +83,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddScoped<IClinicalAssessmentClient, TestAssessmentClient>();
 
             // Replace notification service stub
-            var notifDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(INotificationService));
-            if (notifDescriptor != null) services.Remove(notifDescriptor);
+            var notifDescriptors = services.Where(d => d.ServiceType == typeof(INotificationService)).ToList();
+            foreach (var d in notifDescriptors) services.Remove(d);
             // Also remove TypedHttpClient registrations for NotificationService
             var httpClientDescriptors = services
                 .Where(d => d.ImplementationType == typeof(NotificationService))
@@ -616,7 +622,9 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
         {
             Username = "fake_admin",
             Password = "Password123!",
-            Role = "Admin"
+            Role = "Admin",
+            Email = "fake@admin.com",
+            FullName = "Fake Admin"
         });
         Assert.Equal(HttpStatusCode.Unauthorized, anonRes.StatusCode);
 
@@ -628,7 +636,9 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
             {
                 Username = "escalated_user",
                 Password = "Password123!",
-                Role = "Admin"
+                Role = "Admin",
+                Email = "patient@admin.com",
+                FullName = "Patient Admin"
             })
         };
         patientReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", patientToken);
@@ -645,7 +655,8 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
                 Username = newStaffName,
                 Password = "StaffPassword123!",
                 Role = "Staff",
-                FullName = "Hospital Nurse"
+                FullName = "Hospital Nurse",
+                Email = "nurse@careflow.ai"
             })
         };
         adminReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);

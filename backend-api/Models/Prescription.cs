@@ -55,6 +55,12 @@ namespace CareFlowAI.API.Models
 
         public DateTime? NotifiedAt { get; set; }
 
+        /// <summary>Reason for notification failure (last attempt). Null if not yet attempted or succeeded.</summary>
+        public string? NotificationFailureReason { get; set; }
+
+        /// <summary>Number of notification dispatch attempts made (for retry tracking).</summary>
+        public int NotificationRetryCount { get; set; } = 0;
+
         // ── Audit Fields ─────────────────────────────────────────────────────
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

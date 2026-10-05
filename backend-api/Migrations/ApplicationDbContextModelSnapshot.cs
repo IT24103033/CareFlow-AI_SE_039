@@ -199,6 +199,30 @@ namespace CareFlowAI.API.Migrations
                             FullName = "Dr. Robert Smith",
                             IsActive = true,
                             Specialization = "General Practitioner"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222221"),
+                            Email = "neuro@careflow.ai",
+                            FullName = "Dr. Alice Wong",
+                            IsActive = true,
+                            Specialization = "Neurologist"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222223"),
+                            Email = "cardio@careflow.ai",
+                            FullName = "Dr. James Bond",
+                            IsActive = true,
+                            Specialization = "Cardiologist"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222224"),
+                            Email = "pulmon@careflow.ai",
+                            FullName = "Dr. Sarah Connor",
+                            IsActive = true,
+                            Specialization = "Pulmonologist"
                         });
                 });
 
@@ -225,6 +249,232 @@ namespace CareFlowAI.API.Migrations
                     b.HasIndex("DoctorId");
 
                     b.ToTable("DoctorAvailabilities");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("5197fbe8-f54a-4d87-bd7b-82b93d36e111"),
+                            Date = new DateOnly(2026, 10, 6),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("3b06256a-d942-4f3b-ad7e-4ba6f9eed48d"),
+                            Date = new DateOnly(2026, 10, 7),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("c3352b19-8c12-4a32-88fa-2fa16bb79c99"),
+                            Date = new DateOnly(2026, 10, 8),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("7ac29be8-eee8-4203-be5e-652a6cdb6dc7"),
+                            Date = new DateOnly(2026, 10, 9),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("269f87ff-57ca-4ef0-a1dd-581f5566b306"),
+                            Date = new DateOnly(2026, 10, 10),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("01b987f2-74c8-41a3-8847-260be27d2607"),
+                            Date = new DateOnly(2026, 10, 11),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("a7eb8897-8c4f-4afd-a156-73ce9caad686"),
+                            Date = new DateOnly(2026, 10, 12),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("f4e656d7-65d9-4ae9-beaa-897f57ba779f"),
+                            Date = new DateOnly(2026, 10, 6),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("7260440d-6353-4c1e-a5f0-49326f42e993"),
+                            Date = new DateOnly(2026, 10, 7),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("682de52a-65a8-4f98-b9ee-6fe3ac81b76b"),
+                            Date = new DateOnly(2026, 10, 8),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("6224f692-78e7-48f6-a55b-eb8bcc9b9ae7"),
+                            Date = new DateOnly(2026, 10, 9),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("587cd0b2-95c4-433f-92dc-b9188ec5db80"),
+                            Date = new DateOnly(2026, 10, 10),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("44fb9971-7d4e-40b4-9d47-7c2b36338ae2"),
+                            Date = new DateOnly(2026, 10, 11),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("a8cb586b-a2d5-4d19-978b-ffee0fe5d7af"),
+                            Date = new DateOnly(2026, 10, 12),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222221"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("853a3600-cdb2-4b80-bfc6-7bed651c80a3"),
+                            Date = new DateOnly(2026, 10, 6),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("16bff826-e518-4fad-9215-d40b128efe4f"),
+                            Date = new DateOnly(2026, 10, 7),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("9c9f8f80-c8b7-4640-8af7-eab067e76a18"),
+                            Date = new DateOnly(2026, 10, 8),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("36b59332-ca20-4508-aca1-e1e137dedb46"),
+                            Date = new DateOnly(2026, 10, 9),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("8d88328d-01d4-4de3-9080-db2e4007c2bb"),
+                            Date = new DateOnly(2026, 10, 10),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("7cb01284-60b0-4880-809b-004b8527706f"),
+                            Date = new DateOnly(2026, 10, 11),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("872cb9ab-0875-4181-af32-75194d3bfa63"),
+                            Date = new DateOnly(2026, 10, 12),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222223"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("e45e97fd-d61c-4370-85b6-aead3f9e9085"),
+                            Date = new DateOnly(2026, 10, 6),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("b1744bb9-a343-4325-be78-40b7667e844d"),
+                            Date = new DateOnly(2026, 10, 7),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("d7ca6639-46e4-47c3-b1c3-7ceb1e4a780b"),
+                            Date = new DateOnly(2026, 10, 8),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("99215c53-cc5d-4a9b-b71e-d33f4cc6111d"),
+                            Date = new DateOnly(2026, 10, 9),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("210b0a1d-3f73-4dd3-ad0c-cc6a363153c0"),
+                            Date = new DateOnly(2026, 10, 10),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("bb106138-c2dd-4e96-8aeb-0f574300e117"),
+                            Date = new DateOnly(2026, 10, 11),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        },
+                        new
+                        {
+                            Id = new Guid("e4dfd2e5-b8df-4615-a78c-e8383d4f67d1"),
+                            Date = new DateOnly(2026, 10, 12),
+                            DoctorId = new Guid("22222222-2222-2222-2222-222222222224"),
+                            EndTime = new TimeOnly(10, 30, 0),
+                            StartTime = new TimeOnly(10, 0, 0)
+                        });
                 });
 
             modelBuilder.Entity("CareFlowAI.API.Models.Medicine", b =>
@@ -284,6 +534,83 @@ namespace CareFlowAI.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Medicines");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666661"),
+                            Category = "Antibiotic",
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3320),
+                            Description = "Used to treat bacterial infections.",
+                            ExpiryDate = new DateOnly(2028, 1, 1),
+                            IsActive = true,
+                            Manufacturer = "PharmaCorp",
+                            Name = "Amoxicillin 500mg",
+                            ReorderLevel = 100,
+                            StockQuantity = 1000,
+                            UnitPrice = 15.00m,
+                            UpdatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3320)
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666662"),
+                            Category = "Painkiller",
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3330),
+                            Description = "Nonsteroidal anti-inflammatory drug (NSAID).",
+                            ExpiryDate = new DateOnly(2027, 6, 30),
+                            IsActive = true,
+                            Manufacturer = "HealthLife",
+                            Name = "Ibuprofen 400mg",
+                            ReorderLevel = 50,
+                            StockQuantity = 500,
+                            UnitPrice = 8.50m,
+                            UpdatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3330)
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666663"),
+                            Category = "Gastrointestinal",
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3330),
+                            Description = "Proton pump inhibitor for acid reflux.",
+                            ExpiryDate = new DateOnly(2026, 12, 15),
+                            IsActive = true,
+                            Manufacturer = "GastroMed",
+                            Name = "Omeprazole 20mg",
+                            ReorderLevel = 30,
+                            StockQuantity = 300,
+                            UnitPrice = 22.00m,
+                            UpdatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3330)
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666664"),
+                            Category = "Blood Thinner",
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3340),
+                            Description = "Used to reduce the risk of heart attacks.",
+                            ExpiryDate = new DateOnly(2029, 3, 22),
+                            IsActive = true,
+                            Manufacturer = "CardioCare",
+                            Name = "Aspirin 81mg",
+                            ReorderLevel = 80,
+                            StockQuantity = 800,
+                            UnitPrice = 5.00m,
+                            UpdatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3340)
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666665"),
+                            Category = "Antibiotic",
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3340),
+                            Description = "Used to treat bacterial infections.",
+                            ExpiryDate = new DateOnly(2028, 5, 10),
+                            IsActive = true,
+                            Manufacturer = "PharmaCorp",
+                            Name = "Penicillin V Potassium 250mg",
+                            ReorderLevel = 50,
+                            StockQuantity = 400,
+                            UnitPrice = 12.00m,
+                            UpdatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3340)
+                        });
                 });
 
             modelBuilder.Entity("CareFlowAI.API.Models.PatientProfile", b =>
@@ -302,12 +629,21 @@ namespace CareFlowAI.API.Migrations
                     b.Property<DateOnly>("DateOfBirth")
                         .HasColumnType("date");
 
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MedicalHistorySummary")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -319,45 +655,50 @@ namespace CareFlowAI.API.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555551"),
                             BloodGroup = "O+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6910),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3270),
                             DateOfBirth = new DateOnly(1985, 3, 12),
                             FullName = "Sarah Jenkins",
+                            IsActive = true,
                             MedicalHistorySummary = "No known allergies. Previous appendectomy."
                         },
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555552"),
                             BloodGroup = "A-",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6930),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3280),
                             DateOfBirth = new DateOnly(1972, 11, 5),
                             FullName = "Marcus Thorne",
+                            IsActive = true,
                             MedicalHistorySummary = "Type 2 Diabetes, Hypertension."
                         },
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555553"),
                             BloodGroup = "B+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6930),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3300),
                             DateOfBirth = new DateOnly(1990, 7, 22),
                             FullName = "Emily Chen",
+                            IsActive = true,
                             MedicalHistorySummary = "Asthma, treated with inhalers."
                         },
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555554"),
                             BloodGroup = "O-",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6940),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3300),
                             DateOfBirth = new DateOnly(1950, 1, 30),
                             FullName = "David Alaba",
+                            IsActive = true,
                             MedicalHistorySummary = "Coronary artery disease, pacemaker fitted 2018."
                         },
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             BloodGroup = "AB+",
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6950),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3300),
                             DateOfBirth = new DateOnly(2005, 9, 14),
                             FullName = "Fiona Gallagher",
+                            IsActive = true,
                             MedicalHistorySummary = "None."
                         });
                 });
@@ -387,6 +728,12 @@ namespace CareFlowAI.API.Migrations
 
                     b.Property<string>("NotificationChannel")
                         .HasColumnType("text");
+
+                    b.Property<string>("NotificationFailureReason")
+                        .HasColumnType("text");
+
+                    b.Property<int>("NotificationRetryCount")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("NotificationSent")
                         .ValueGeneratedOnAdd()
@@ -592,6 +939,9 @@ namespace CareFlowAI.API.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -618,8 +968,9 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6800),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3220),
                             Email = "admin@careflow.ai",
+                            FullName = "",
                             Password = "password",
                             Role = "Admin",
                             Username = "admin"
@@ -627,9 +978,10 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6810),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3230),
                             DoctorId = new Guid("22222222-2222-2222-2222-222222222220"),
                             Email = "doctor@careflow.ai",
+                            FullName = "",
                             Password = "password",
                             Role = "Doctor",
                             Username = "doctor"
@@ -637,8 +989,9 @@ namespace CareFlowAI.API.Migrations
                         new
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            CreatedAt = new DateTime(2026, 10, 2, 13, 52, 40, 397, DateTimeKind.Utc).AddTicks(6820),
+                            CreatedAt = new DateTime(2026, 10, 5, 10, 6, 45, 264, DateTimeKind.Utc).AddTicks(3230),
                             Email = "staff@careflow.ai",
+                            FullName = "",
                             Password = "password",
                             Role = "Staff",
                             Username = "staff"

@@ -10,13 +10,11 @@ namespace CareFlowAI.API.Tests
 {
     public class DomainAnalysisAgentTests
     {
-        private class StubContextAdapter : IDomainContextAdapter
+        private class StubHistoryTool : CareFlowAI.Orchestrator.Tools.IPatientHistoryTool
         {
-            public Task<CareFlowAI.Orchestrator.Agents.AgentPatientProfile?> GetPatientProfileAsync(Guid patientId, CancellationToken cancellationToken)
+            public Task<string> ExecuteAsync(string patientName)
             {
-                return Task.FromResult<CareFlowAI.Orchestrator.Agents.AgentPatientProfile?>(
-                    new CareFlowAI.Orchestrator.Agents.AgentPatientProfile { MedicalHistorySummary = "History" }
-                );
+                return Task.FromResult("History");
             }
         }
 
@@ -53,7 +51,7 @@ namespace CareFlowAI.API.Tests
                 });
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
             });
-            var agent = new DomainAnalysisAgent(new StubContextAdapter(), "test-key", "test-model", new HttpClient(handler));
+            var agent = new DomainAnalysisAgent("test-key", new StubHistoryTool(), "test-model", new HttpClient(handler));
             var result = await agent.AnalyzeRiskAsync(new AgentInput { PatientId = Guid.NewGuid(), CurrentSymptoms = "Synthetic dental discomfort" });
             Assert.Equal("Medium", result.RiskLevel);
             Assert.Equal(2, calls);
@@ -68,7 +66,7 @@ namespace CareFlowAI.API.Tests
                 Content = new StringContent(rawErrorBody) 
             });
             var client = new HttpClient(handler);
-            var agent = new DomainAnalysisAgent(new StubContextAdapter(), "api-key", "gemini-3.8-flash", client);
+            var agent = new DomainAnalysisAgent("api-key", new StubHistoryTool(), "gemini-3.8-flash", client);
 
             var input = new AgentInput { PatientId = Guid.NewGuid(), CurrentSymptoms = "Cough" };
 
@@ -86,7 +84,7 @@ namespace CareFlowAI.API.Tests
                 Content = new StringContent("invalid json") 
             });
             var client = new HttpClient(handler);
-            var agent = new DomainAnalysisAgent(new StubContextAdapter(), "api-key", "gemini-3.8-flash", client);
+            var agent = new DomainAnalysisAgent("api-key", new StubHistoryTool(), "gemini-3.8-flash", client);
 
             var input = new AgentInput { PatientId = Guid.NewGuid(), CurrentSymptoms = "Cough" };
 
@@ -102,7 +100,7 @@ namespace CareFlowAI.API.Tests
                 Content = new StringContent("{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"{\\\"riskLevel\\\": \\\"Extreme\\\", \\\"recommendedWardType\\\": \\\"General\\\", \\\"flaggedFactors\\\": []}\" } ] } } ] }") 
             });
             var client = new HttpClient(handler);
-            var agent = new DomainAnalysisAgent(new StubContextAdapter(), "api-key", "gemini-3.8-flash", client);
+            var agent = new DomainAnalysisAgent("api-key", new StubHistoryTool(), "gemini-3.8-flash", client);
 
             var input = new AgentInput { PatientId = Guid.NewGuid(), CurrentSymptoms = "Cough" };
 
@@ -115,7 +113,7 @@ namespace CareFlowAI.API.Tests
         {
             var handler = new FakeHttpMessageHandler(req => new HttpResponseMessage(HttpStatusCode.OK));
             var client = new HttpClient(handler);
-            var agent = new DomainAnalysisAgent(new StubContextAdapter(), "api-key", "gemini-3.8-flash", client);
+            var agent = new DomainAnalysisAgent("api-key", new StubHistoryTool(), "gemini-3.8-flash", client);
 
             var input = new AgentInput { PatientId = Guid.NewGuid(), CurrentSymptoms = "Cough" };
             

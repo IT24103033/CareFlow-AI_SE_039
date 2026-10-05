@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordCtrl = TextEditingController();
   final _phoneCtrl    = TextEditingController();
   final _dobCtrl      = TextEditingController();
+  final _allergiesCtrl = TextEditingController();
 
   bool    _isSubmitting   = false;
   bool    _isDone         = false;
@@ -37,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordCtrl.dispose();
     _phoneCtrl.dispose();
     _dobCtrl.dispose();
+    _allergiesCtrl.dispose();
     super.dispose();
   }
 
@@ -52,12 +54,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? '2000-01-01'
           : _dobCtrl.text.trim();
 
+      String history = 'Registered via Mobile App';
+      if (_allergiesCtrl.text.trim().isNotEmpty) {
+        history += '\nAllergies: ' + _allergiesCtrl.text.trim();
+      }
+
       final result = await AuthService.registerPatient(
         username:    _usernameCtrl.text.trim(),
         email:       _emailCtrl.text.trim(),
         password:    _passwordCtrl.text,
         fullName:    _nameCtrl.text.trim(),
         dateOfBirth: dob,
+        medicalHistorySummary: history,
       );
 
       final user = result['user'] as Map<String, dynamic>?;
@@ -439,6 +447,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: (v) => (v == null || v.isEmpty)
                     ? 'Date of birth is required'
                     : null,
+              ),
+              const SizedBox(height: 16),
+
+              _fieldLabel('Allergies (Optional)'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _allergiesCtrl,
+                style: const TextStyle(
+                    color: AppTheme.textDark, fontSize: 14),
+                decoration: AppTheme.inputDecoration(
+                    hint: 'e.g. Penicillin, Peanuts',
+                    icon: Icons.medical_information_outlined),
               ),
               const SizedBox(height: 32),
 
