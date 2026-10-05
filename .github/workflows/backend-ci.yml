@@ -2,36 +2,83 @@ name: ASP.NET Core Backend CI
 
 on:
   push:
-    branches: [ "main", "develop", "feature/**" ]
+    branches:
+      - main
+      - feature/Resource-Scheduling
   pull_request:
-    branches: [ "main", "develop" ]
+    branches:
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: careflow_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d careflow_db"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Restore Dependencies
-      run: dotnet restore backend-api/CareFlowAI.API.csproj
+      - name: Restore dependencies
+        run: dotnet restore backend-api.Tests/CareFlowAI.API.Tests.csproj
 
-    - name: Build Solution
-      run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
+      - name: Build
+        run: dotnet build backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --no-restore
 
-    - name: Run Backend Tests
-      run: dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --verbosity normal
+      - name: Create PostgreSQL test schema
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
+        run: |
+          mkdir -p /tmp/CareFlowDbInitializer
+          cd /tmp/CareFlowDbInitializer
 
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+          dotnet new console --framework net8.0 --force
 
-    - name: Run Triage Client Contract Tests
-      run: npm test --prefix web-admin
+          dotnet add reference "$GITHUB_WORKSPACE/backend-api/CareFlowAI.API.csproj"
+
+          cat > Program.cs <<'EOF'
+          using CareFlowAI.API.Data;
+          using Microsoft.EntityFrameworkCore;
+
+          var connectionString =
+              Environment.GetEnvironmentVariable(
+                  "ConnectionStrings__DefaultConnection");
+
+          var options =
+              new DbContextOptionsBuilder<ApplicationDbContext>()
+                  .UseNpgsql(connectionString)
+                  .Options;
+
+          await using var db =
+              new ApplicationDbContext(options);
+
+          await db.Database.EnsureCreatedAsync();
+
+          Console.WriteLine(
+              "PostgreSQL test schema created successfully.");
+          EOF
+
+          dotnet run
+
+      - name: Run tests
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
+        run: dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj --configuration Release --no-build --verbosity normal

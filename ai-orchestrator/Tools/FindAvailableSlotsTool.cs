@@ -1,50 +1,51 @@
-using System.Net.Http.Json;
+using System.Text.Json;
+using CareFlowAI.Orchestrator.Abstractions;
+using CareFlowAI.Orchestrator.Models;
 
 namespace CareFlowAI.Orchestrator.Tools
 {
     public class FindAvailableSlotsTool
     {
-        private readonly HttpClient _httpClient;
+        private readonly IAvailabilityProvider _availabilityProvider;
 
-        public FindAvailableSlotsTool(HttpClient httpClient)
+        public FindAvailableSlotsTool(
+            IAvailabilityProvider availabilityProvider)
         {
-            _httpClient = httpClient;
+            _availabilityProvider = availabilityProvider;
         }
 
         // Allow-listed tool:
         // Finds available appointment slots for a doctor on a specific date.
-        public async Task<string> ExecuteAsync(
+        public async Task<AppointmentActionResult> ExecuteAsync(
             Guid doctorId,
             DateOnly date,
             int slotDurationMinutes = 30)
         {
             try
             {
-                var url =
-                    $"http://localhost:5241/api/DoctorAvailability/slots" +
-                    $"?doctorId={doctorId}" +
-                    $"&date={date:yyyy-MM-dd}" +
-                    $"&slotDurationMinutes={slotDurationMinutes}";
+                var slots = await _availabilityProvider.GetAvailableSlotsAsync(
+                    doctorId,
+                    date,
+                    slotDurationMinutes);
 
-                var response = await _httpClient.GetAsync(url);
-
-                if (!response.IsSuccessStatusCode)
+                if (slots.Count == 0)
                 {
-                    return "No available slots found for the selected doctor and date.";
+                    return AppointmentActionResult.Unavailable(
+                        "No available slots found for the selected doctor and date.");
                 }
 
-                var slots =
-                    await response.Content.ReadAsStringAsync();
-
-                return slots;
+                return AppointmentActionResult.Success(
+                    JsonSerializer.Serialize(slots));
             }
-            catch (HttpRequestException)
+            catch (ArgumentException ex)
             {
-                return "Unable to connect to the CareFlow API.";
+                return AppointmentActionResult.InvalidRequest(
+                    $"Invalid slot request: {ex.Message}");
             }
             catch (Exception)
             {
-                return "An unexpected error occurred while finding available slots.";
+                return AppointmentActionResult.ProviderError(
+                    "An unexpected error occurred while finding available slots.");
             }
         }
     }

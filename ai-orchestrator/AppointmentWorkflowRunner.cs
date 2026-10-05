@@ -1,5 +1,5 @@
 using CareFlowAI.Orchestrator.Agents;
-using CareFlowAI.Orchestrator.Tools;
+using CareFlowAI.Orchestrator.Models;
 
 namespace CareFlowAI.Orchestrator
 {
@@ -7,42 +7,26 @@ namespace CareFlowAI.Orchestrator
     {
         private readonly AppointmentActionAgent _agent;
 
-        public AppointmentWorkflowRunner()
+        public AppointmentWorkflowRunner(AppointmentActionAgent agent)
         {
-            // Create the HTTP client used by the appointment tools
-            var httpClient = new HttpClient();
-
-            // Create the allow-listed tools
-            var findAvailableSlotsTool =
-                new FindAvailableSlotsTool(httpClient);
-
-            var checkBookingConflictTool =
-                new CheckBookingConflictTool(httpClient);
-
-            var createTentativeBookingTool =
-                new CreateTentativeBookingTool(httpClient);
-
-            // Create the Component C Action Agent
-            _agent = new AppointmentActionAgent(
-                findAvailableSlotsTool,
-                checkBookingConflictTool,
-                createTentativeBookingTool);
+            _agent = agent;
         }
 
-        // Runs the controlled appointment workflow.
-        public async Task<string> RunAsync(
-            Guid doctorId,
-            Guid patientId,
-            DateOnly appointmentDate,
-            TimeOnly startTime,
-            TimeOnly endTime)
+        public async Task<AppointmentWorkflowResult> RunAsync(
+            AppointmentWorkflowRequest request)
         {
-            return await _agent.FindAndBookAsync(
-                doctorId,
-                patientId,
-                appointmentDate,
-                startTime,
-                endTime);
+            var result = await _agent.FindAndBookAsync(
+                request.DoctorId,
+                request.PatientId,
+                request.AppointmentDate,
+                request.StartTime,
+                request.EndTime);
+
+            return new AppointmentWorkflowResult(
+                request.WorkflowId,
+                result.AppointmentId,
+                result.Status,
+                result.Message);
         }
     }
 }

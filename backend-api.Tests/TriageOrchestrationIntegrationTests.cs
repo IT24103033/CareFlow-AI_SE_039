@@ -36,7 +36,11 @@ public class TriageOrchestrationIntegrationTests : IDisposable
         services.AddScoped<CheckBookingConflictTool>();
         services.AddScoped<CreateTentativeBookingTool>();
         services.AddScoped<AppointmentActionAgent>();
-        
+        services.AddScoped<DoctorAvailabilityService>();
+        services.AddScoped<CareFlowAI.Orchestrator.Abstractions.IAvailabilityProvider, AvailabilityProviderAdapter>();
+        services.AddScoped<CareFlowAI.Orchestrator.Abstractions.IAppointmentProvider, AppointmentProviderAdapter>();
+        services.AddScoped<CareFlowAI.Orchestrator.Abstractions.IAppointmentBookingProvider, AppointmentBookingProviderAdapter>();
+
         _serviceProvider = services.BuildServiceProvider();
         _dbContext = _serviceProvider.GetRequiredService<ApplicationDbContext>();
         _dbContext.Database.EnsureCreated();
