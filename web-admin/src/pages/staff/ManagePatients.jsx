@@ -19,7 +19,6 @@ const ManagePatients = () => {
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
-  const [editing, setEditing] = useState(null);
 
   // moved useEffect down
 
@@ -183,7 +182,6 @@ const ManagePatients = () => {
               <p><strong>History:</strong> {p.medicalHistorySummary || 'N/A'}</p>
             </div>
             <div className="patient-tile-actions">
-              <button className="admit-btn" onClick={() => setEditing(p)}>Edit</button>
               <button className="admit-btn" onClick={() => openAdmitModal(p.id || p.Id)}>Admit</button>
               <button className="admit-btn" onClick={() => openAiForPatient(p)}>AI Analyze</button>
             </div>
@@ -220,17 +218,6 @@ const ManagePatients = () => {
             <button className="submit-admit-btn" onClick={handleAdmit}>Confirm Admission</button>
           </div>
         </div>
-      )}
-
-      {editing && (
-        <PatientEditModal
-          patient={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            fetchPatients();
-          }}
-        />
       )}
 
       {/* AI FAB */}

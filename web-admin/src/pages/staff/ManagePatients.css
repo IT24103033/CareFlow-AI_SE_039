@@ -359,3 +359,96 @@
 .patients-table tr:last-child td {
   border-bottom: none;
 }
+
+.staff-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.staff-filter {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.staff-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-light);
+}
+
+.pagination-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.page-btn {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.completed {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.status-badge.review {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.status-badge.pending {
+  background: #f8fafc;
+  color: #475467;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cancel-btn {
+  background: white;
+  border: 1px solid #d0d5dd;
+  color: #344054;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.save-btn {
+  background: #0ab39c;
+  border: none;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+}

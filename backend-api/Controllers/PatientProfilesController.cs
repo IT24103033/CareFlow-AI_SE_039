@@ -134,6 +134,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patient);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> DeletePatient(Guid id)
         {

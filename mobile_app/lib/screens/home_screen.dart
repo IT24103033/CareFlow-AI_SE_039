@@ -10,6 +10,7 @@ import 'my_prescriptions_screen.dart';
 import 'login_screen.dart';
 import 'MobileWardStatus.dart';
 import 'patient_profile_screen.dart';
+import 'medical_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -127,6 +128,20 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                _sectionLabel('MY RECORDS'),
+                const SizedBox(height: 12),
+                _MenuCard(
+                  icon: Icons.person_outline,
+                  iconColor: AppTheme.teal,
+                  title: 'My Medical Profile',
+                  subtitle:
+                      'View personal details and stored medical history',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const MedicalProfileScreen())),
+                ),
+                const SizedBox(height: 28),
+
                 _sectionLabel('TRIAGE SERVICES'),
                 const SizedBox(height: 12),
                 _MenuCard(
@@ -244,6 +259,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.person_outline,
+                        color: Color(0xFFAEC0D8)),
+                    tooltip: 'My Profile',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const MedicalProfileScreen()),
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.logout_outlined,
                         color: Color(0xFFAEC0D8)),

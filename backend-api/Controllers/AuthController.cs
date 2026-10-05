@@ -261,18 +261,23 @@ namespace CareFlowAI.API.Controllers
         [HttpGet("staff")]
         public async Task<IActionResult> GetStaff()
         {
-            var staff = await _context.Users
-                .AsNoTracking()
-                .Where(u => u.Role == "Admin" || u.Role == "Doctor" || u.Role == "Staff")
-                .Select(u => new
+            var staff = await (
+                from u in _context.Users.AsNoTracking()
+                where u.Role == "Admin" || u.Role == "Doctor" || u.Role == "Staff"
+                join d in _context.Doctors.AsNoTracking() on u.DoctorId equals d.Id into doctors
+                from d in doctors.DefaultIfEmpty()
+                orderby u.Role, u.Username
+                select new
                 {
                     u.Id,
                     u.Username,
+                    FullName = !string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : (d != null ? d.FullName : ""),
                     Email = u.Email ?? "",
                     u.Role,
-                    u.DoctorId
-                })
-                .ToListAsync();
+                    u.DoctorId,
+                    Specialization = d != null ? d.Specialization : null
+                }
+            ).ToListAsync();
 
             return Ok(staff);
         }
