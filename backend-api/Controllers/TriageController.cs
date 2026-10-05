@@ -84,10 +84,47 @@ namespace CareFlowAI.API.Controllers
 
             if (isEmergency)
             {
-                return BadRequest(new { 
-                    error = "EMERGENCY_DETECTED", 
-                    message = "Stop. Your symptoms indicate a life-threatening emergency. Call 911 or go to the nearest emergency room immediately."
-                });
+                var emergencyRecord = new TriageRecord
+                {
+                    PatientId = patientId,
+                    Symptoms = dto.Symptoms.Trim(),
+                    AttachmentId = dto.AttachmentId,
+                    TriageStatus = "InReview",
+                    SeverityLevel = "Critical"
+                };
+
+                if (dto.AttachmentId.HasValue)
+                {
+                    var attachment = await _context.TriageAttachments.FindAsync(dto.AttachmentId.Value);
+                    if (attachment != null && attachment.UploaderId == patientId && attachment.TriageRecordId == null)
+                    {
+                        attachment.TriageRecordId = emergencyRecord.Id;
+                        emergencyRecord.Attachment = attachment;
+                    }
+                }
+
+                var planObj = new
+                {
+                    SchemaVersion = 1,
+                    UrgencyLevel = "Critical",
+                    Rationale = "Stop. Your symptoms indicate a life-threatening emergency. Call 911 or go to the nearest emergency room immediately.",
+                    SuggestedSpecialist = "General Practitioner",
+                    RecommendedAction = "Call 911 or visit the ER immediately"
+                };
+
+                var emergencyAgentState = new AgentWorkflowState
+                {
+                    AgentName = "PlanningAgent",
+                    AgentStatus = "Completed",
+                    OutputPayload = System.Text.Json.JsonSerializer.Serialize(planObj)
+                };
+
+                _context.TriageRecords.Add(emergencyRecord);
+                emergencyAgentState.TriageRecordId = emergencyRecord.Id;
+                _context.AgentWorkflows.Add(emergencyAgentState);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return CreatedAtAction(nameof(GetById), new { id = emergencyRecord.Id }, MapToDto(emergencyRecord, emergencyAgentState, _cloudinary));
             }
 
             // 2. Save the triage record

@@ -291,6 +291,14 @@ namespace CareFlowAI.API.Data
                 new PatientProfile { Id = Guid.Parse("55555555-5555-5555-5555-555555555554"), FullName = "David Alaba", DateOfBirth = new DateOnly(1950, 1, 30), BloodGroup = "O-", MedicalHistorySummary = "Coronary artery disease, pacemaker fitted 2018." },
                 new PatientProfile { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), FullName = "Fiona Gallagher", DateOfBirth = new DateOnly(2005, 9, 14), BloodGroup = "AB+", MedicalHistorySummary = "None." }
             );
+            // Seed Medicines
+            modelBuilder.Entity<Medicine>().HasData(
+                new Medicine { Id = Guid.Parse("66666666-6666-6666-6666-666666666661"), Name = "Amoxicillin 500mg", Category = "Antibiotic", Description = "Used to treat bacterial infections.", Manufacturer = "PharmaCorp", StockQuantity = 1000, ReorderLevel = 100, UnitPrice = 15.00m, ExpiryDate = new DateOnly(2028, 1, 1) },
+                new Medicine { Id = Guid.Parse("66666666-6666-6666-6666-666666666662"), Name = "Ibuprofen 400mg", Category = "Painkiller", Description = "Nonsteroidal anti-inflammatory drug (NSAID).", Manufacturer = "HealthLife", StockQuantity = 500, ReorderLevel = 50, UnitPrice = 8.50m, ExpiryDate = new DateOnly(2027, 6, 30) },
+                new Medicine { Id = Guid.Parse("66666666-6666-6666-6666-666666666663"), Name = "Omeprazole 20mg", Category = "Gastrointestinal", Description = "Proton pump inhibitor for acid reflux.", Manufacturer = "GastroMed", StockQuantity = 300, ReorderLevel = 30, UnitPrice = 22.00m, ExpiryDate = new DateOnly(2026, 12, 15) },
+                new Medicine { Id = Guid.Parse("66666666-6666-6666-6666-666666666664"), Name = "Aspirin 81mg", Category = "Blood Thinner", Description = "Used to reduce the risk of heart attacks.", Manufacturer = "CardioCare", StockQuantity = 800, ReorderLevel = 80, UnitPrice = 5.00m, ExpiryDate = new DateOnly(2029, 3, 22) },
+                new Medicine { Id = Guid.Parse("66666666-6666-6666-6666-666666666665"), Name = "Penicillin V Potassium 250mg", Category = "Antibiotic", Description = "Used to treat bacterial infections.", Manufacturer = "PharmaCorp", StockQuantity = 400, ReorderLevel = 50, UnitPrice = 12.00m, ExpiryDate = new DateOnly(2028, 5, 10) }
+            );
         }
     }
 }

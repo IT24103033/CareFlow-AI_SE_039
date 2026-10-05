@@ -20,6 +20,9 @@ namespace CareFlowAI.API.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>Soft delete flag. False means the patient record is archived.</summary>
+        public bool IsActive { get; set; } = true;
+
         // Navigation Property for their admissions
         public ICollection<Admission> Admissions { get; set; } = new List<Admission>();
     }

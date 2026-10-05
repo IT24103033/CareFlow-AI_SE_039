@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/PatientProfile.dart';
@@ -5,8 +6,9 @@ import '../models/Ward.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  // Use localhost for Chrome/Edge web target
-  static const String baseUrl = 'http://localhost:5241/api';
+  static final String baseUrl = Platform.isAndroid
+      ? 'http://10.0.2.2:5241/api'
+      : 'http://localhost:5241/api';
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await AuthService.getAccessToken();

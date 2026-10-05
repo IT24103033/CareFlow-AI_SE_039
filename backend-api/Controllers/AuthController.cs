@@ -198,6 +198,7 @@ namespace CareFlowAI.API.Controllers
             var user = new User
             {
                 Username = dto.Username.Trim(),
+                FullName = string.IsNullOrWhiteSpace(dto.FullName) ? dto.Username : dto.FullName.Trim(),
                 Email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.Username}@careflow.ai" : dto.Email.Trim().ToLower(),
                 Password = PasswordHasher.Hash(dto.Password),
                 Role = dto.Role,
@@ -267,7 +268,7 @@ namespace CareFlowAI.API.Controllers
                 {
                     u.Id,
                     u.Username,
-                    u.Email,
+                    Email = u.Email ?? "",
                     u.Role,
                     u.DoctorId
                 })

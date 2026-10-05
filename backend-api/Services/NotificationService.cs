@@ -97,7 +97,7 @@ namespace CareFlowAI.API.Services
                 var response = await _httpClient.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Email notification dispatched successfully to '{Address}'.", toEmail);
+                    _logger.LogInformation("[NotificationService] Email notification dispatched successfully to '{Address}'.", toEmail);
                     return true;
                 }
 
@@ -155,7 +155,7 @@ namespace CareFlowAI.API.Services
                 var response = await _httpClient.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("SMS notification dispatched successfully to '{Phone}'.", phoneNumber);
+                    _logger.LogInformation("[NotificationService] SMS notification dispatched successfully to '{Phone}'.", phoneNumber);
                     return true;
                 }
 
@@ -268,7 +268,7 @@ namespace CareFlowAI.API.Services
             if (overallSuccess)
             {
                 _logger.LogInformation(
-                    "Prescription notification dispatched successfully via channel: {Channel} for patient '{Name}'.",
+                    "[NotificationService] Prescription notification dispatched successfully via channel: {Channel} for patient '{Name}'.",
                     channel, patientName);
                 return (true, null);
             }

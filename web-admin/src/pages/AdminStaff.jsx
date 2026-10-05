@@ -5,7 +5,7 @@ import './staff/ManagePatients.css'; // Re-use the nice styling
 const AdminStaff = () => {
   const [staff, setStaff] = useState([]);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [formData, setFormData] = useState({ username: '', password: '', role: 'Staff' });
+  const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'Staff', fullName: '', specialization: '' });
   const [error, setError] = useState('');
 
   const fetchStaff = async () => {
@@ -36,7 +36,7 @@ const AdminStaff = () => {
         return;
       }
       setIsRegisterOpen(false);
-      setFormData({ username: '', password: '', role: 'Staff' });
+      setFormData({ username: '', email: '', password: '', role: 'Staff', fullName: '', specialization: '' });
       fetchStaff();
     } catch (e) {
       console.error(e);
@@ -46,7 +46,7 @@ const AdminStaff = () => {
 
   return (
     <div className="manage-patients-container">
-      <div className="header-row">
+      <div className="manage-header">
         <h2 className="page-title">Staff Management</h2>
         <button className="register-btn" onClick={() => setIsRegisterOpen(true)}>
           + Add Staff Member
@@ -110,6 +110,15 @@ const AdminStaff = () => {
                 />
               </label>
               <label>
+                Email
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </label>
+              <label>
                 Password
                 <input
                   type="password"
@@ -130,6 +139,27 @@ const AdminStaff = () => {
                   <option value="Admin">Admin</option>
                 </select>
               </label>
+              <label>
+                Full Name
+                <input
+                  type="text"
+                  required
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                />
+              </label>
+              
+              {formData.role === 'Doctor' && (
+                <label>
+                  Specialization
+                  <input
+                    type="text"
+                    required
+                    value={formData.specialization}
+                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                  />
+                </label>
+              )}
               
               <div className="modal-actions">
                 <button type="button" className="cancel-btn" onClick={() => setIsRegisterOpen(false)}>Cancel</button>

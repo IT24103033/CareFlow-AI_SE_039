@@ -22,7 +22,7 @@ namespace CareFlowAI.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPatients()
         {
-            var patients = await _context.PatientProfiles.ToListAsync();
+            var patients = await _context.PatientProfiles.Where(p => p.IsActive).ToListAsync();
             return Ok(patients);
         }
 
@@ -39,7 +39,7 @@ namespace CareFlowAI.API.Controllers
             }
 
             var patient = await _context.PatientProfiles.FindAsync(id);
-            if (patient == null)
+            if (patient == null || !patient.IsActive)
                 return NotFound("Patient profile not found.");
 
             return Ok(patient);
@@ -62,13 +62,13 @@ namespace CareFlowAI.API.Controllers
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                var all = await _context.PatientProfiles.ToListAsync();
+                var all = await _context.PatientProfiles.Where(p => p.IsActive).ToListAsync();
                 return Ok(all);
             }
 
             var nameLower = name.ToLower();
             var patients = await _context.PatientProfiles
-                .Where(p => p.FullName.ToLower().Contains(nameLower))
+                .Where(p => p.IsActive && p.FullName.ToLower().Contains(nameLower))
                 .ToListAsync();
 
             return Ok(patients);
@@ -78,7 +78,7 @@ namespace CareFlowAI.API.Controllers
         public async Task<IActionResult> UpdatePatient(Guid id, [FromBody] PatientProfileUpdateDto dto)
         {
             var patient = await _context.PatientProfiles.FindAsync(id);
-            if (patient == null)
+            if (patient == null || !patient.IsActive)
                 return NotFound("Patient not found.");
 
             if (dto.DateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
@@ -101,17 +101,23 @@ namespace CareFlowAI.API.Controllers
                     .ThenInclude(a => a.Ward)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (patient == null)
+            if (patient == null || !patient.IsActive)
                 return NotFound("Patient not found.");
 
+            // Discharge the patient from any active admissions so beds aren't permanently locked
             foreach (var admission in patient.Admissions)
             {
-                if (admission.DischargedAt == null && admission.Ward != null && admission.Ward.OccupiedBeds > 0)
-                    admission.Ward.OccupiedBeds--;
+                if (admission.DischargedAt == null && admission.Ward != null)
+                {
+                    if (admission.Ward.OccupiedBeds > 0)
+                        admission.Ward.OccupiedBeds--;
+                    admission.DischargedAt = DateTime.UtcNow;
+                }
             }
 
-            _context.Admissions.RemoveRange(patient.Admissions);
-            _context.PatientProfiles.Remove(patient);
+            // Perform the Soft Delete
+            patient.IsActive = false;
+            
             await _context.SaveChangesAsync();
             return NoContent();
         }

@@ -69,8 +69,13 @@ namespace CareFlowAI.API.DTOs
         [Required]
         public string Role { get; set; } = string.Empty; // "Staff" or "Doctor"
 
+        [Required]
         public string FullName { get; set; } = string.Empty;
+
         public string Specialization { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
         public string Email { get; set; } = string.Empty;
     }
 }

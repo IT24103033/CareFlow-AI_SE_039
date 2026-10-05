@@ -622,7 +622,9 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
         {
             Username = "fake_admin",
             Password = "Password123!",
-            Role = "Admin"
+            Role = "Admin",
+            Email = "fake@admin.com",
+            FullName = "Fake Admin"
         });
         Assert.Equal(HttpStatusCode.Unauthorized, anonRes.StatusCode);
 
@@ -634,7 +636,9 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
             {
                 Username = "escalated_user",
                 Password = "Password123!",
-                Role = "Admin"
+                Role = "Admin",
+                Email = "patient@admin.com",
+                FullName = "Patient Admin"
             })
         };
         patientReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", patientToken);
@@ -651,7 +655,8 @@ public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<Cust
                 Username = newStaffName,
                 Password = "StaffPassword123!",
                 Role = "Staff",
-                FullName = "Hospital Nurse"
+                FullName = "Hospital Nurse",
+                Email = "nurse@careflow.ai"
             })
         };
         adminReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
