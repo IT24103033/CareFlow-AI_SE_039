@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/ApiService.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 class MyAppointmentsScreen extends StatefulWidget {
@@ -116,9 +116,17 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Doctor ID: ${appointment['doctorId']}',
+                              'Doctor: ${appointment['doctorName'] ?? 'Unknown'}',
                               style: const TextStyle(fontSize: 14, color: Colors.grey),
                             ),
+                            if (appointment['reason'] != null && appointment['reason'].toString().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Reason: ${appointment['reason']}',
+                                  style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                                ),
+                              ),
                           ],
                         ),
                       ),

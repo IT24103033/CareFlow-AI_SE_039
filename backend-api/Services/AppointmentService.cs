@@ -32,7 +32,11 @@ namespace CareFlowAI.API.Services
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     Status = a.Status,
-                    CreatedAt = a.CreatedAt
+                    ApprovalStatus = a.ApprovalStatus,
+                    ApprovedByDoctorId = a.ApprovedByDoctorId,
+                    ApprovedAt = a.ApprovedAt,
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .ToListAsync();
         }
@@ -53,7 +57,11 @@ namespace CareFlowAI.API.Services
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     Status = a.Status,
-                    CreatedAt = a.CreatedAt
+                    ApprovalStatus = a.ApprovalStatus,
+                    ApprovedByDoctorId = a.ApprovedByDoctorId,
+                    ApprovedAt = a.ApprovedAt,
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .FirstOrDefaultAsync();
         }
@@ -76,7 +84,11 @@ namespace CareFlowAI.API.Services
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     Status = a.Status,
-                    CreatedAt = a.CreatedAt
+                    ApprovalStatus = a.ApprovalStatus,
+                    ApprovedByDoctorId = a.ApprovedByDoctorId,
+                    ApprovedAt = a.ApprovedAt,
+                    CreatedAt = a.CreatedAt,
+                    Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == a.Id).Select(t => t.Symptoms).FirstOrDefault()
                 })
                 .ToListAsync();
         }
@@ -164,7 +176,8 @@ namespace CareFlowAI.API.Services
                         "The selected appointment time is already booked.");
                 }
 
-                // Create tentative appointment
+                // Create tentative appointment.
+                // Confirmation requires doctor approval.
                 var appointment = new Appointment
                 {
                     DoctorId = dto.DoctorId,
@@ -173,6 +186,9 @@ namespace CareFlowAI.API.Services
                     StartTime = dto.StartTime,
                     EndTime = dto.EndTime,
                     Status = "Tentative",
+                    ApprovalStatus = "Pending",
+                    ApprovedByDoctorId = null,
+                    ApprovedAt = null,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -192,7 +208,11 @@ namespace CareFlowAI.API.Services
                     StartTime = appointment.StartTime,
                     EndTime = appointment.EndTime,
                     Status = appointment.Status,
-                    CreatedAt = appointment.CreatedAt
+                    ApprovalStatus = appointment.ApprovalStatus,
+                    ApprovedByDoctorId = appointment.ApprovedByDoctorId,
+                    ApprovedAt = appointment.ApprovedAt,
+                    CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
                 };
             }
             catch (PostgresException ex) when (ex.SqlState == "40001")
@@ -204,7 +224,66 @@ namespace CareFlowAI.API.Services
             }
         }
 
-        // Confirm a tentative appointment
+        // Approve a tentative appointment.
+        // Only an authorized doctor should be able to call this operation
+        // through the controller.
+        public async Task<AppointmentDto?> ApproveAsync(
+            Guid id,
+            Guid doctorId)
+        {
+            var appointment = await _context.Appointments
+                .Include(a => a.Doctor)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            if (appointment == null)
+            {
+                return null;
+            }
+
+            // A doctor can only approve appointments assigned to them.
+            if (appointment.DoctorId != doctorId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not authorized to approve this appointment.");
+            }
+
+            if (appointment.Status == "Cancelled")
+            {
+                throw new InvalidOperationException(
+                    "Cancelled appointments cannot be approved.");
+            }
+
+            if (appointment.Status == "Confirmed")
+            {
+                throw new InvalidOperationException(
+                    "This appointment is already confirmed.");
+            }
+
+            appointment.ApprovalStatus = "Approved";
+            appointment.ApprovedByDoctorId = doctorId;
+            appointment.ApprovedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return new AppointmentDto
+            {
+                Id = appointment.Id,
+                DoctorId = appointment.DoctorId,
+                DoctorName = appointment.Doctor.FullName,
+                PatientId = appointment.PatientId,
+                AppointmentDate = appointment.AppointmentDate,
+                StartTime = appointment.StartTime,
+                EndTime = appointment.EndTime,
+                Status = appointment.Status,
+                ApprovalStatus = appointment.ApprovalStatus,
+                ApprovedByDoctorId = appointment.ApprovedByDoctorId,
+                ApprovedAt = appointment.ApprovedAt,
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
+            };
+        }
+
+        // Confirm an approved appointment
         public async Task<AppointmentDto?> ConfirmAsync(Guid id)
         {
             var appointment = await _context.Appointments
@@ -222,6 +301,14 @@ namespace CareFlowAI.API.Services
                     "Cancelled appointments cannot be confirmed.");
             }
 
+            // IMPORTANT:
+            // Confirmation is blocked until a doctor approves the appointment.
+            if (appointment.ApprovalStatus != "Approved")
+            {
+                throw new InvalidOperationException(
+                    "The appointment must be approved by a doctor before it can be confirmed.");
+            }
+
             appointment.Status = "Confirmed";
 
             await _context.SaveChangesAsync();
@@ -236,7 +323,11 @@ namespace CareFlowAI.API.Services
                 StartTime = appointment.StartTime,
                 EndTime = appointment.EndTime,
                 Status = appointment.Status,
-                CreatedAt = appointment.CreatedAt
+                ApprovalStatus = appointment.ApprovalStatus,
+                ApprovedByDoctorId = appointment.ApprovedByDoctorId,
+                ApprovedAt = appointment.ApprovedAt,
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
             };
         }
 
@@ -266,7 +357,11 @@ namespace CareFlowAI.API.Services
                 StartTime = appointment.StartTime,
                 EndTime = appointment.EndTime,
                 Status = appointment.Status,
-                CreatedAt = appointment.CreatedAt
+                ApprovalStatus = appointment.ApprovalStatus,
+                ApprovedByDoctorId = appointment.ApprovedByDoctorId,
+                ApprovedAt = appointment.ApprovedAt,
+                CreatedAt = appointment.CreatedAt,
+                Reason = _context.TriageRecords.Where(t => t.TentativeAppointmentId == appointment.Id).Select(t => t.Symptoms).FirstOrDefault()
             };
         }
 

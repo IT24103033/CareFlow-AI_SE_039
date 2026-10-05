@@ -8,6 +8,8 @@ import 'submit_triage_screen.dart';
 import 'triage_dashboard_screen.dart';
 import 'my_prescriptions_screen.dart';
 import 'login_screen.dart';
+import 'mobile_ward_status.dart';
+import 'patient_profile_screen.dart';
 import 'medical_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _patientName = '';
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -80,7 +83,42 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.pageWhite,
-      body: CustomScrollView(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildHomeTab(),
+          const PatientProfileScreen(),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        selectedItemColor: AppTheme.teal,
+        unselectedItemColor: const Color(0xFFAEC0D8),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeTab() {
+    return CustomScrollView(
         slivers: [
           // ── Navy header ──────────────────────────────────────────────────
           SliverToBoxAdapter(child: _buildHeader()),
@@ -159,12 +197,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Check doctor availability & book a slot',
                   onTap: () => Navigator.pushNamed(context, '/book_appointment'),
                 ),
+                const SizedBox(height: 28),
+
+                _sectionLabel('HOSPITAL'),
+                const SizedBox(height: 12),
+                _MenuCard(
+                  icon: Icons.bed_outlined,
+                  iconColor: const Color(0xFFE53E3E),
+                  title: 'Ward Status',
+                  subtitle: 'View your admitted ward and hospital capacity',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const MobileWardStatus())),
+                ),
               ]),
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildHeader() {

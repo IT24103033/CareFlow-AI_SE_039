@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       String history = 'Registered via Mobile App';
       if (_allergiesCtrl.text.trim().isNotEmpty) {
-        history += '\nAllergies: ' + _allergiesCtrl.text.trim();
+        history += '\nAllergies: ${_allergiesCtrl.text.trim()}';
       }
 
       final result = await AuthService.registerPatient(

@@ -23,7 +23,7 @@ const PrescriptionManagement = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [medicines, setMedicines]         = useState([]);
   const [patients, setPatients]           = useState([]);
-  const [total, setTotal]                 = useState(0);
+  
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
   const [selected, setSelected]           = useState(null); // expanded row detail
@@ -66,13 +66,19 @@ const PrescriptionManagement = () => {
       if (!res.ok) throw new Error('Failed to fetch prescriptions');
       const data = await res.json();
       setPrescriptions(data.items || []);
-      setTotal(data.totalCount || 0);
+      
       setTotalPages(data.totalPages || 1);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [search, status, aiStatus, page]);
 
-  useEffect(() => { fetchPrescriptions(); }, [fetchPrescriptions]);
+  
+  useEffect(() => {
+    let active = true;
+    if (active) fetchPrescriptions();
+    return () => { active = false; };
+  }, [fetchPrescriptions]);
+
 
   useEffect(() => {
     // Fetch medicines for the create form dropdown

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PatientEditModal from '../../components/PatientEditModal';
 import PatientManagement from '../PatientManagement';
 import { apiFetch } from '../../services/api';
 import './ManagePatients.css'; // updated CSS
@@ -19,10 +20,7 @@ const ManagePatients = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
 
-  useEffect(() => {
-    fetchPatients();
-    fetchWards();
-  }, []);
+  // moved useEffect down
 
   const fetchPatients = async () => {
     try {
@@ -47,6 +45,11 @@ const ManagePatients = () => {
       console.error('Failed to fetch wards', e);
     }
   };
+
+  useEffect(() => {
+    fetchPatients();
+    fetchWards();
+  }, []);
 
   const handleSearch = async (e) => {
     const term = e.target.value;
@@ -106,7 +109,7 @@ const ManagePatients = () => {
       }
 
       setAiResponse(data);
-    } catch (e) {
+    } catch {
       setAiError('Could not reach the API at http://localhost:5241. Start the backend, then try again.');
     } finally {
       setAiLoading(false);
@@ -120,15 +123,7 @@ const ManagePatients = () => {
   };
 
   // ------- DOB validation -------
-  const validateDob = (val) => {
-    const pattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!pattern.test(val)) return 'Format must be YYYY-MM-DD';
-    const entered = new Date(val);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (entered > today) return 'Date of birth cannot be in the future';
-    return null; // valid
-  };
+  // (unused)
 
   const handleAdmit = async () => {
     if (!selectedWardId) {

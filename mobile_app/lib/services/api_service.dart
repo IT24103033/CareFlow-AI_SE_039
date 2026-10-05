@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../models/PatientProfile.dart';
-import '../models/Ward.dart';
+import '../models/patient_profile.dart';
+import '../models/ward.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -84,6 +84,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/Wards'),
+        headers: await _authHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -172,6 +173,30 @@ class ApiService {
     } catch (e) {
       throw Exception(
         'Failed to load available slots: $e',
+      );
+    }
+  }
+
+  /// Book a slot for a triage record.
+  Future<Map<String, dynamic>> bookTriageSlot(String triageId, Map<String, dynamic> slotData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/Triage/$triageId/book-slot'),
+        headers: await _authHeaders(),
+        body: json.encode(slotData),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+
+      throw Exception(
+        'Failed to book slot '
+        '(Status: ${response.statusCode})',
+      );
+    } catch (e) {
+      throw Exception(
+        'Failed to book slot: $e',
       );
     }
   }

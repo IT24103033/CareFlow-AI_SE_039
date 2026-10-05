@@ -1,20 +1,22 @@
-using System.Net.Http.Json;
+using CareFlowAI.Orchestrator.Abstractions;
+using CareFlowAI.Orchestrator.Models;
 
 namespace CareFlowAI.Orchestrator.Tools
 {
     public class CheckBookingConflictTool
     {
-        private readonly HttpClient _httpClient;
+        private readonly IAppointmentProvider _appointmentProvider;
 
-        public CheckBookingConflictTool(HttpClient httpClient)
+        public CheckBookingConflictTool(
+            IAppointmentProvider appointmentProvider)
         {
-            _httpClient = httpClient;
+            _appointmentProvider = appointmentProvider;
         }
 
         // Allow-listed tool:
         // Checks whether an appointment time conflicts
         // with an existing appointment.
-        public async Task<string> ExecuteAsync(
+        public async Task<AppointmentActionResult> ExecuteAsync(
             Guid doctorId,
             Guid patientId,
             DateOnly appointmentDate,
@@ -23,36 +25,31 @@ namespace CareFlowAI.Orchestrator.Tools
         {
             try
             {
-                var request = new
-                {
-                    doctorId = doctorId,
-                    patientId = patientId,
-                    appointmentDate = appointmentDate,
-                    startTime = startTime,
-                    endTime = endTime
-                };
+                var hasConflict =
+                    await _appointmentProvider.CheckConflictAsync(
+                        doctorId,
+                        appointmentDate,
+                        startTime,
+                        endTime);
 
-                var response = await _httpClient.PostAsJsonAsync(
-                    "http://localhost:5241/api/Appointments/check-conflict",
-                    request);
-
-                if (!response.IsSuccessStatusCode)
+                if (hasConflict)
                 {
-                    return "Unable to check booking conflict.";
+                    return AppointmentActionResult.Conflict(
+                        "Booking conflict detected. The selected time is already booked.");
                 }
 
-                var result =
-                    await response.Content.ReadAsStringAsync();
-
-                return result;
+                return AppointmentActionResult.Success(
+                    "No booking conflict detected.");
             }
-            catch (HttpRequestException)
+            catch (ArgumentException ex)
             {
-                return "Unable to connect to the CareFlow API.";
+                return AppointmentActionResult.InvalidRequest(
+                    $"Invalid booking request: {ex.Message}");
             }
             catch (Exception)
             {
-                return "An unexpected error occurred while checking the booking conflict.";
+                return AppointmentActionResult.ProviderError(
+                    "An unexpected error occurred while checking the booking conflict.");
             }
         }
     }

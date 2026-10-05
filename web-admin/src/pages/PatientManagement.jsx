@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from "react";
 import { apiFetch } from '../services/api';
 
 const PatientManagement = ({ onRegistered }) => {

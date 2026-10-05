@@ -28,6 +28,28 @@ namespace CareFlowAI.API.Controllers
 
         // GET: api/patientprofiles/{id}
         [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var patientClaim = User?.FindFirst("patient_id")?.Value;
+            if (!Guid.TryParse(patientClaim, out var authPatientId))
+            {
+                var fullName = User?.FindFirst("full_name")?.Value;
+                if (string.IsNullOrEmpty(fullName)) return Unauthorized();
+                var profile = await _context.PatientProfiles
+                    .Include(p => p.Admissions).ThenInclude(a => a.Ward)
+                    .FirstOrDefaultAsync(p => p.FullName == fullName);
+                if (profile == null) return NotFound("Profile not found.");
+                return Ok(profile);
+            }
+            var patient = await _context.PatientProfiles
+                .Include(p => p.Admissions).ThenInclude(a => a.Ward)
+                .FirstOrDefaultAsync(p => p.Id == authPatientId);
+            if (patient == null) return NotFound();
+            return Ok(patient);
+        }
+
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -38,7 +60,11 @@ namespace CareFlowAI.API.Controllers
                     return StatusCode(403, "You do not have permission to view this patient profile.");
             }
 
-            var patient = await _context.PatientProfiles.FindAsync(id);
+            var patient = await _context.PatientProfiles
+                .Include(p => p.Admissions)
+                    .ThenInclude(a => a.Ward)
+                .FirstOrDefaultAsync(p => p.Id == id);
+                
             if (patient == null || !patient.IsActive)
                 return NotFound("Patient profile not found.");
 
@@ -74,13 +100,27 @@ namespace CareFlowAI.API.Controllers
             return Ok(patients);
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdatePatient(Guid id, [FromBody] PatientProfileUpdateDto dto)
         {
             var patient = await _context.PatientProfiles.FindAsync(id);
             if (patient == null || !patient.IsActive)
                 return NotFound("Patient not found.");
+
+            if (User?.IsInRole("Patient") == true)
+            {
+                var patientClaim = User?.FindFirst("patient_id")?.Value;
+                if (!Guid.TryParse(patientClaim, out var authPatientId) || authPatientId != id)
+                {
+                    // Fallback to name check if patient_id is missing
+                    var fullNameClaim = User?.FindFirst("full_name")?.Value;
+                    if (string.IsNullOrEmpty(fullNameClaim) || patient.FullName != fullNameClaim)
+                    {
+                        return StatusCode(403, "You do not have permission to update this patient profile.");
+                    }
+                }
+            }
 
             if (dto.DateOfBirth > DateOnly.FromDateTime(DateTime.UtcNow))
                 return BadRequest("Date of birth cannot be in the future.");
