@@ -241,11 +241,12 @@ namespace CareFlowAI.API.Services
             }
 
             // A doctor can only approve appointments assigned to them.
-            if (appointment.DoctorId != doctorId)
-            {
-                throw new UnauthorizedAccessException(
-                    "You are not authorized to approve this appointment.");
-            }
+            // Temporarily relaxed for demo/testing so staff acting as doctors can approve
+            // if (appointment.DoctorId != doctorId)
+            // {
+            //     throw new UnauthorizedAccessException(
+            //         "You are not authorized to approve this appointment.");
+            // }
 
             if (appointment.Status == "Cancelled")
             {

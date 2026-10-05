@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../models/patient_profile.dart';
-import 'patient_home_screen.dart';
+import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (patient != null) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => PatientHomeScreen(patient: patient),
+            builder: (_) => const HomeScreen(),
           ),
         );
       } else {
@@ -232,9 +233,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
               Center(
-                child: Text(
-                  'Not registered? Contact hospital reception.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                  child: RichText(
+                    text: TextSpan(
+                      text: 'New patient? ',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      children: const [
+                        TextSpan(
+                          text: 'Create Account',
+                          style: TextStyle(
+                              color: Color(0xFF0AB39C),
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

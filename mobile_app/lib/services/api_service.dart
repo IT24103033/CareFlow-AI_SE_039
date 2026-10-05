@@ -24,21 +24,17 @@ class ApiService {
     };
   }
 
-  /// Login: searches for a patient by full name as their identifier
+  /// Login: gets the authenticated patient's profile
   Future<PatientProfile?> loginPatient(String fullName) async {
     try {
+      final headers = await _authHeaders();
       final response = await http.get(
-        Uri.parse(
-          '$baseUrl/PatientProfiles/search?name=${Uri.encodeComponent(fullName)}',
-        ),
+        Uri.parse('$baseUrl/PatientProfiles/me'),
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
-        List<dynamic> data = json.decode(response.body);
-
-        if (data.isNotEmpty) {
-          return PatientProfile.fromJson(data[0]);
-        }
+        return PatientProfile.fromJson(json.decode(response.body));
       }
 
       return null;
