@@ -1,20 +1,12 @@
+import 'api_config.dart';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/patient_profile.dart';
 import '../models/ward.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5241/api';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5241/api';
-    }
-    return 'http://localhost:5241/api';
-  }
+  static const String baseUrl = ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await AuthService.getAccessToken();

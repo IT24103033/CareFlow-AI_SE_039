@@ -1,3 +1,4 @@
+import 'api_config.dart';
 // Component B – Triage API Service
 // Handles all HTTP calls to the ASP.NET Core backend /api/triage endpoints with JWT authentication.
 
@@ -7,8 +8,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class TriageService {
-  static final String _baseUrl =
-      Platform.isAndroid ? 'http://10.0.2.2:5241' : 'http://localhost:5241';
+  static const String _baseUrl = ApiConfig.origin;
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await AuthService.getAccessToken();

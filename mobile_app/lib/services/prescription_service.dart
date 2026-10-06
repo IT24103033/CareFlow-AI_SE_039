@@ -1,16 +1,14 @@
+import 'api_config.dart';
 // Component D: Pharmacy Inventory & E-Prescriptions — Flutter HTTP service
 // Communicates with the ASP.NET Core API to fetch patient prescriptions with JWT authentication.
 
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/prescription_model.dart';
 import 'auth_service.dart';
 
 class PrescriptionService {
-  static final String _baseUrl = Platform.isAndroid
-      ? 'http://10.0.2.2:5241/api'
-      : 'http://localhost:5241/api';
+  static const String _baseUrl = ApiConfig.apiBaseUrl;
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await AuthService.getAccessToken();

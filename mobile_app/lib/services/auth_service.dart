@@ -1,8 +1,8 @@
+import 'api_config.dart';
 // Authentication Service
 // Uses flutter_secure_storage to persist session tokens and patient identity.
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -23,19 +23,7 @@ class AuthService {
   static const _keyEmail = 'careflow_email';
   static const _keyRole = 'careflow_role';
 
-  // Android Emulator → 10.0.2.2
-  // Web/Desktop → localhost
-  static String get _baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5241';
-    }
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5241';
-    }
-
-    return 'http://localhost:5241';
-  }
+  static const String _baseUrl = ApiConfig.origin;
 
   // ── Save session ────────────────────────────────────────────────────────────
   static Future<void> saveSession({
