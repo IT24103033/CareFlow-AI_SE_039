@@ -2,24 +2,24 @@
 
 CareFlow AI is Group SE_039's integrated hospital workflow application. It connects patient records and admissions, symptom triage, appointment scheduling, and pharmacy operations through a shared ASP.NET Core API and PostgreSQL database. Patients use Flutter; hospital users use React. AI supports assessment and planning, while authenticated users retain responsibility for clinical approval.
 
-This README covers the documentation requested in assignment Section 14.1. Deployment is being finalized; entries marked **Pending** are not verified live services. This is an academic prototype, not a validated clinical system.
+This README covers the documentation requested in assignment Section 14.1. The backend is deployed on Render and the web portal on Vercel. The APK and demonstration video are linked below. This is an academic prototype, not a validated clinical system.
 
 ## Submission and access
 
 | Deliverable | Location / status |
 |---|---|
 | Repository | https://github.com/IT24103033/CareFlow-AI_SE_039 |
-| React website (Vercel) | **Pending:** add final public URL |
-| Backend API (Render) | **Pending:** add final public base URL |
+| React website (Vercel) | https://care-flow-ai-se-039.vercel.app |
+| Backend API (Render) | https://careflow-ai-se-039.onrender.com |
 | API health URL | **Pending:** implement and publish a health endpoint; none is currently mapped |
 | Production Swagger | **Pending:** current Swagger middleware is Development-only |
-| Android APK | **Pending:** add download link, version and installation instructions |
-| Demo video | [Google Drive demo folder](https://drive.google.com/drive/folders/1mDBlpug9Q9nrtR5LMSYQq7J4UoKvjaYr?usp=sharing). Upload reported complete; anonymous playback and duration remain to be checked. |
-| Consolidated report | Generated locally under `output/pdf/SE3090_SE039_Consolidated_Report_Draft.pdf`; review copy, not necessarily tracked in Git |
+| Android APK | [APK download folder](https://drive.google.com/drive/folders/1ZgL1VADVWcowwMZFpPXKCl6tQUH0diqy?usp=sharing). Public download access confirmed by the team in a private browser window. |
+| Demo video | [Google Drive demo folder](https://drive.google.com/drive/folders/1mDBlpug9Q9nrtR5LMSYQq7J4UoKvjaYr?usp=sharing). Video uploaded; public link access confirmed by the team in a private browser window. |
+| Consolidated report | Final signed submission: `SE3090_G39.pdf`, generated locally under `output/pdf/` and submitted separately from the repository |
 | ER diagram | Generated locally under `output/pdf/CareFlow_AI_Complete_ERD.pdf`; editable Mermaid source alongside it |
-| Evaluator accounts | **Pending:** supply dedicated synthetic accounts for Patient, Doctor, Staff and Admin through the submission access instructions |
+| Evaluator accounts | Admin, Doctor and Staff demonstration account details are in the submitted PDF. Patients can select **Create Account** in the mobile app and register their own test account. |
 
-Open all submitted links in an incognito browser before submission. The assignment requests a 10-minute video accessible without permission requests and availability of the repository, video and deployed services until at least **21 October 2026**. Never publish real patient credentials or production secrets in this repository.
+The team confirmed that all submission links open in a private browser window on 6 October 2026. Admin, Doctor and Staff login were also tested on the deployed web portal. The assignment requests a 10-minute video accessible without permission requests and availability of the repository, video and deployed services until at least **21 October 2026**. Never publish real patient credentials or production secrets in this repository.
 
 ## Problem, users and features
 
@@ -44,7 +44,7 @@ Features include patient history, ward allocation/risk analysis, structured AI p
 | Flutter / Dart | Patient mobile application, reusable widgets and device integrations |
 | Gemini with C# orchestration | Model-assisted analysis/planning combined with explicit service contracts, tool boundaries and validation |
 | Cloudinary | Image upload storage; credentials remain on the backend |
-| Render / Vercel | Selected backend container and React hosting platforms; deployment not yet verified |
+| Render / Vercel | Deployed backend container on Render and React static website on Vercel |
 
 React and Flutter call the same API. Controllers authenticate requests and delegate to services. EF Core accesses PostgreSQL; agent services use patient context, Gemini, scheduling tools and safety checks. The API persists results for review and returns updated state to both clients. The `ai-orchestrator` project is referenced by the API and runs in the same backend process; no separate agent server is required.
 
@@ -185,7 +185,7 @@ flutter devices
 flutter run
 ```
 
-Current services use `10.0.2.2:5241` for the Android emulator and localhost for other local targets. A physical phone cannot reach your computer through its own localhost. Before physical-device or release testing, update the service URL configuration to the appropriate reachable API. There is currently no single verified `--dart-define` switch that updates all services.
+Mobile API services share `mobile_app/lib/services/api_config.dart`, which currently points to `https://careflow-ai-se-039.onrender.com`. For local development, change `ApiConfig.origin` to a reachable backend origin (for example, `http://10.0.2.2:5241` for the Android emulator), then restore the deployed HTTPS origin before building a release APK. A physical phone cannot reach your computer through its own localhost.
 
 Review `api_service.dart`, `auth_service.dart`, `triage_service.dart` and `prescription_service.dart` under `mobile_app/lib/services/`; also search other call sites. Keep `/api` prefixes consistent with each service's existing route construction.
 
@@ -221,7 +221,7 @@ flutter analyze
 flutter test
 ```
 
-Recorded verification on 6 October 2026: the user-provided backend run reports **101 passed, 0 failed, 1 skipped**; local React verification reports **10 tests passed** and a successful production build. These are point-in-time results, not proof of a later deployment. No new Flutter verification is claimed here. `ConcurrentBookings_ShouldNotBothSucceed` is explicitly skipped because EF InMemory does not support the needed concurrent constraints; real PostgreSQL race testing remains necessary.
+Recorded verification on 6 October 2026: the user-provided backend run reports **101 passed, 0 failed, 1 skipped**; local React verification reports **10 tests passed** and a successful production build. These are point-in-time results, not proof of a later deployment. Subsequent `flutter analyze --no-pub` completed with no issues after the mobile API configuration update; this does not replace installed-device testing. `ConcurrentBookings_ShouldNotBothSucceed` is explicitly skipped because EF InMemory does not support the needed concurrent constraints; real PostgreSQL race testing remains necessary.
 
 Final E2E checklist:
 
@@ -253,14 +253,14 @@ The Dockerfile builds and publishes the API with .NET 8. `.github/workflows/depl
 
 - Import the repository; choose Vite and root directory `web-admin`.
 - Install with `npm ci`, build with `npm run build`, and publish `dist`.
-- Set `VITE_API_BASE_URL=https://YOUR-API.onrender.com` before building, without `/api`.
-- Configure an SPA fallback to `/index.html` for client-side routes and verify direct navigation/refresh.
+- Set `VITE_API_BASE_URL=https://careflow-ai-se-039.onrender.com` before building, without `/api`.
+- `web-admin/vercel.json` supplies the SPA fallback to `/index.html` for client-side routes.
 - Replace hardcoded localhost requests in `PatientEditModal.jsx` and `AdminPatients.jsx` with the shared authenticated API client before release.
 - Restrict backend CORS to the intended deployed frontend origins; the current policy allows any origin.
 
 ### Android APK
 
-After updating all mobile API origins to the deployed HTTPS backend:
+The shared `ApiConfig.origin` is already set to the Render HTTPS backend. To rebuild the APK:
 
 ```bash
 cd mobile_app
@@ -268,7 +268,7 @@ flutter pub get
 flutter build apk --release
 ```
 
-The normal output is `mobile_app/build/app/outputs/flutter-apk/app-release.apk`. Review signing configuration, install the APK on a physical Android device, permit installation from the trusted download source when prompted, and test authentication, uploads, appointments and prescriptions. Verify network permissions and notification permissions. Upload the tested APK, record its version/commit and add its download URL above. Do not distribute an emulator-localhost build as the final deployed app.
+The normal output is `mobile_app/build/app/outputs/flutter-apk/app-release.apk`. Review signing configuration, install the APK on a physical Android device, permit installation from the trusted download source when prompted, and test authentication, uploads, appointments and prescriptions. Verify network permissions and notification permissions. The distributed APK is available from the download folder above. Record the build version/commit when publishing a replacement. Do not distribute an emulator-localhost build as the final deployed app.
 
 ## Troubleshooting and known limits
 
