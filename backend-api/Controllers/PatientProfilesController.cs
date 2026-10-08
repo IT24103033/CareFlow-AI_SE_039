@@ -75,7 +75,13 @@ namespace CareFlowAI.API.Controllers
         [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPost]
         public async Task<IActionResult> RegisterPatient([FromBody] PatientProfile patient)
-        {
+        {   
+            var validBloodGroups = new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" };
+            if (string.IsNullOrWhiteSpace(patient.BloodGroup) || !validBloodGroups.Contains(patient.BloodGroup.Trim().ToUpper()))
+            {
+                return BadRequest(new { error = "Invalid or unsupported blood group format. Allowed values: A+, A-, B+, B-, AB+, AB-, O+, O-." });
+            }
+            
             _context.PatientProfiles.Add(patient);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);

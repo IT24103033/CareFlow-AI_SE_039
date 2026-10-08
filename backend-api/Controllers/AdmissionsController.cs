@@ -69,7 +69,12 @@ namespace CareFlowAI.API.Controllers
         [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPost("analyze-risk")]
         public async Task<IActionResult> AnalyzePatientRisk([FromBody] CareFlowAI.Orchestrator.Agents.AgentInput request, CancellationToken cancellationToken)
-        {
+        {   
+            if (string.IsNullOrWhiteSpace(request.PatientName))
+            {
+                return BadRequest(new { error = "Patient name is strictly required." });
+            }
+            
             try
             {
                 var analysisResult = await _domainAnalysisAgent.AnalyzeRiskAsync(request);
