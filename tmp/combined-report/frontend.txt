@@ -1,0 +1,518 @@
+PAGE 1
+SE3110: Quality Management in Software Engineering 
+Software Testing and Quality Evaluation of the SE3090 Integrated System 
+Member 2 – React Web & Flutter Mobile UI Testing 
+Student: IT24102852 – Pallawala S R 
+Member: 2 
+Testing Areas: React Web UI and Flutter Mobile UI 
+Testing Tools: Vitest, React Testing Library, flutter_test 
+ 
+1. Testing Scope 
+The testing activities for Member 2 focused on the frontend UI layers of the CareFlow-AI integrated 
+system. 
+The main objectives were to verify: 
+• React component rendering 
+• Login form validation 
+• Login error handling 
+• Role-based navigation 
+• Protected route behaviour 
+• Loading states 
+• Flutter appointment screen rendering 
+• Appointment search interactions 
+• Date selection 
+• Doctor and slot display 
+• Appointment booking validation 
+• Appointment success and error feedback 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+PAGE 2
+2. React Web Application Test Cases 
+Test ID Feature Type Preconditions Test Steps / 
+Input 
+Expected / Actual 
+Result Status 
+REACT-
+TC01 Login UI Normal Login page 
+available 
+Open Login 
+page 
+Required login 
+controls displayed / 
+Displayed correctly 
+Pass 
+REACT-
+TC02 
+Form 
+Validation Negative Login page 
+available 
+Submit with 
+empty fields 
+Validation prevents 
+submission / 
+Submission 
+prevented 
+Pass 
+REACT-
+TC03 Login Error Negative Login page 
+available 
+Enter 
+invalid 
+credentials 
+Error message 
+displayed / Error 
+displayed 
+Pass 
+REACT-
+TC04 
+Admin 
+Navigation Normal 
+Login 
+succeeds as 
+Admin 
+Submit 
+Admin 
+login 
+Navigate to /admin / 
+Navigated correctly Pass 
+REACT-
+TC05 
+Doctor 
+Navigation Normal 
+Login 
+succeeds as 
+Doctor 
+Submit 
+Doctor 
+login 
+Navigate to 
+/doctor/dashboard 
+/ Navigated correctly 
+Pass 
+REACT-
+TC06 
+Staff 
+Navigation Normal 
+Login 
+succeeds as 
+Staff 
+Submit 
+Staff login 
+Navigate to 
+/staff/patients / 
+Navigated correctly 
+Pass 
+REACT-
+TC07 
+Unsupported 
+Role Negative Login page 
+available 
+Submit 
+unsupported 
+role 
+Appropriate error 
+displayed / Error 
+displayed 
+Pass 
+REACT-
+TC08 
+Loading 
+State Normal Login request 
+pending 
+Submit 
+login while 
+request is 
+pending 
+Inputs/button 
+disabled and loading 
+shown / Behaviour 
+verified 
+Pass 
+REACT-
+TC09 
+Protected 
+Route Security User not 
+authenticated 
+Access 
+protected 
+route 
+Redirect to Login / 
+Redirected correctly Pass 
+REACT-
+TC10 
+Role 
+Authorization Security 
+User has 
+unauthorized 
+role 
+Access 
+restricted 
+route 
+Access prevented / 
+User redirected Pass 
+REACT-
+TC11 
+Allowed 
+Role Normal User has 
+allowed role 
+Access 
+protected 
+route 
+Protected content 
+displayed / Content 
+displayed 
+Pass 
+REACT-
+TC12 
+Unrestricted 
+Route Normal User 
+authenticated 
+Access 
+route 
+without role 
+restriction 
+Route accessible / 
+Content displayed Pass 
+ 
+ 
+PAGE 3
+React Automated Execution 
+Test Files: 2 passed 
+Tests: 12 passed 
+Failed: 0 
+ 
+ 
+The React test suite successfully verified login behaviour, validation, loading states, role-based 
+navigation and protected route behaviour. 
+ 
+3. Flutter Mobile Application Test Cases 
+The Flutter appointment availability functionality was tested using the Flutter flutter_test framework. 
+A FakeApiService was used to control API responses during widget testing. This allowed different 
+success, failure, empty-result and loading conditions to be tested without depending on a live 
+backend connection. 
+Test ID Feature Type Preconditions Test Steps / 
+Input 
+Expected / 
+Actual Result Status 
+FLUTTER-
+TC01 
+Appointment 
+UI Normal App available 
+Open 
+Appointment 
+screen 
+Search controls 
+displayed / 
+Displayed 
+correctly 
+Pass 
+FLUTTER-
+TC02 
+Specialization 
+List Normal Appointment 
+screen open 
+Open 
+specialization 
+dropdown 
+Four 
+specializations 
+displayed / 
+Displayed 
+correctly 
+Pass 
+FLUTTER-
+TC03 
+Specialization 
+Selection Normal Dropdown 
+open 
+Select 
+Cardiology 
+Cardiology 
+selected / Pass 
+
+PAGE 4
+Test ID Feature Type Preconditions Test Steps / 
+Input 
+Expected / 
+Actual Result Status 
+Selected 
+correctly 
+FLUTTER-
+TC04 
+Date 
+Selection Normal Appointment 
+screen open 
+Tap date 
+selector 
+Date picker 
+opens / Opened 
+correctly 
+Pass 
+FLUTTER-
+TC05 
+Doctor Search 
+Loading Normal API request 
+pending 
+Search for 
+doctors 
+Loading 
+indicator 
+displayed / 
+Displayed 
+correctly 
+Pass 
+FLUTTER-
+TC06 
+Doctor Search 
+Success Normal Fake API 
+returns doctors 
+Search with 
+valid criteria 
+Doctors 
+displayed / 
+Doctors 
+displayed 
+correctly 
+Pass 
+FLUTTER-
+TC07 
+No Doctor 
+Results Boundary 
+Fake API 
+returns empty 
+list 
+Search for 
+doctors 
+Empty state 
+displayed / 
+Empty state 
+displayed 
+Pass 
+FLUTTER-
+TC08 
+Doctor Search 
+Error Negative Fake API 
+returns error 
+Search for 
+doctors 
+Error feedback 
+displayed / 
+Snackbar 
+displayed 
+Pass 
+FLUTTER-
+TC09 Slot Loading Normal Doctor 
+available Select doctor 
+Slot loading 
+state displayed 
+/ Displayed 
+correctly 
+Pass 
+FLUTTER-
+TC10 
+Missing 
+Patient Negative Patient ID 
+unavailable 
+Attempt 
+appointment 
+booking 
+Booking 
+rejected safely 
+/ Rejected with 
+feedback 
+Pass 
+FLUTTER-
+TC11 
+Successful 
+Booking Normal Valid patient 
+and slot 
+Select slot 
+and book 
+Confirmation 
+displayed / 
+Booking 
+confirmation 
+displayed 
+Pass 
+FLUTTER-
+TC12 
+Booking 
+Failure Negative Fake API 
+returns failure 
+Attempt 
+booking 
+Error feedback 
+displayed / 
+Error displayed 
+Pass 
+Flutter Appointment Test Execution 
+Appointment Availability Test Cases: 12 passed 
+Failed: 0 
+The complete Flutter test suite was also executed. 
+PAGE 5
+Full Flutter Suite: 25 passed 
+Failed: 0 
+ 
+ 
+ 
+4. Manual UI Testing Evidence 
+Manual testing was performed to provide visual evidence of important frontend states. 
+React Web 
+The following screenshots were captured: 
+ 
+1. Login page/component rendering 
+ 
+ 
+2. Empty/invalid login form validation 
+ 
+3. Login error state 
+
+PAGE 6
+ 
+These screenshots provide visual evidence that the tested UI states are displayed correctly. 
+ 
+Flutter Mobile 
+The following screenshots were captured: 
+1. Appointment availability main screen 
+ 
+ 
+ 
+ 
+2. Appointment date selection 
+
+PAGE 7
+               
+ 
+3. Available doctors and appointment slots 
+ 
+ 
+ 
+4. Appointment booking feedback 
+
+PAGE 8
+               
+The specialization selection behaviour was covered through automated widget testing rather than 
+being used as a manual screenshot. 
+ 
+5. Defect, Fix and Retesting 
+Defect ID: M2-F01 
+Area: Flutter Appointment Availability UI Testing 
+Defect: 
+The appointment widget test initially failed with a pumpAndSettle timeout while testing the doctor-
+selection loading state. 
+Cause: 
+The test intentionally used a pending Completer for the slot API request. However, the helper 
+method used pumpAndSettle(). Since the asynchronous request was intentionally never completed 
+at that point, Flutter continued waiting for the application to become idle and eventually timed out. 
+Fix: 
+The doctor-selection helper was changed to perform only a single pump() after tapping the doctor. 
+Tests where the fake API completed immediately were allowed to use pumpAndSettle() separately. 
+Retesting: 
+The appointment availability test suite was executed again. 
+Before Fix: Test timeout/failure during loading-state testing. 
+
+PAGE 9
+After Fix: 
+• Appointment Availability tests: 12/12 passed 
+• Full Flutter suite: 25/25 passed 
+Therefore, the defect was successfully fixed and verified through retesting. 
+ 
+ 
+ 
+ 
+6. Automated Testing Summary 
+Application Tool Tests Executed Passed Failed 
+React Web Vitest + React Testing Library 12 12 0 
+Flutter Appointment UI flutter_test 12 12 0 
+Full Flutter Suite flutter_test 25 25 0 
+The new Member 2 React and appointment Flutter tests contain 24 tests in total, all of which passed. 
+The full Flutter regression execution also passed all 25 tests. 
+ 
+ 
+7. Test Execution and Reproduction 
+React Tests 
+Navigate to the web administration project: 
+cd C:\Users\ASUS\Downloads\CareFlow-AI_SE_039\web-admin 
+Run the automated React tests: 
+npm test 
+Expected result: 
+Test Files  2 passed 
+Tests       12 passed 
+PAGE 10
+ 
+ 
+Flutter Tests 
+Navigate to the mobile application: 
+cd C:\Users\ASUS\Downloads\CareFlow-AI_SE_039\mobile_app 
+Run the appointment availability tests: 
+flutter test test\appointment_availability_test.dart 
+Expected result: 
+00:06 +12: All tests passed! 
+Run the complete Flutter test suite: 
+flutter test 
+Expected result: 
+00:05 +25: All tests passed! 
+ 
+ 
+ 
+ 
+8. Testing Limitations 
+This tests focus specifically on frontend UI behaviour. 
+The React tests use controlled/mocked API behaviour and therefore do not independently prove 
+backend or database correctness. 
+
+PAGE 11
+The Flutter appointment widget tests use a FakeApiService to simulate API responses. Therefore, 
+these tests verify the UI's behaviour for successful, empty, loading and failed API conditions, but they 
+do not replace live backend integration testing. 
+Backend/API, database, Agentic AI, performance and security testing were handled by the other 
+group members and are outside the individual Member 2 testing scope. 
+ 
+9. Individual Contribution 
+As Member 2, my contribution focused on frontend quality assurance for the React web application 
+and Flutter mobile application. 
+My testing contribution included: 
+• Setting up Vitest for React testing 
+• Configuring React Testing Library and jsdom 
+• Creating React login and protected-route tests 
+• Testing form validation and error states 
+• Testing role-based navigation 
+• Setting up Flutter appointment widget testing 
+• Creating a fake API service for controlled UI testing 
+• Testing appointment search and booking states 
+• Testing loading, empty and error states 
+• Identifying and fixing the asynchronous pumpAndSettle test issue 
+• Re-running the tests after the fix 
+• Collecting manual UI testing evidence 
+• Committing and pushing the frontend testing implementation to the GitHub test-run branch 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+PAGE 12
+Git evidence – 
+ 
+ 
+ 
+10. Conclusion 
+The frontend testing performed for Member 2 provided automated and manual verification of 
+important React web and Flutter mobile UI functionality. 
+The React test suite achieved 12/12 passing tests, while the appointment availability Flutter suite 
+achieved 12/12 passing tests. The complete Flutter test suite also achieved 25/25 passing tests. 
+The identified Flutter asynchronous testing defect was corrected and successfully verified through 
+retesting. Overall, the results demonstrate that the tested frontend components respond correctly to 
+valid input, invalid input, loading conditions, empty results, successful operations and API failures. 
+ 
+ 
+ 
+ 
+ 

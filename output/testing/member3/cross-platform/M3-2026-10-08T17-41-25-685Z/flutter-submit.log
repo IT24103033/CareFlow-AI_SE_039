@@ -1,0 +1,4 @@
+00:00 +0: loading /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart
+Running Gradle task 'assembleDebug'...                             22.5s
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Installing build/app/outputs/flutter-apk/app-debug.apk...          28.7s

@@ -269,6 +269,7 @@ namespace CareFlowAI.API.Controllers
         {
             var record = await _context.TriageRecords
                 .Include(t => t.AgentWorkflows).Include(t => t.Attachment)
+                .Include(t => t.ReviewHistories)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (record == null)

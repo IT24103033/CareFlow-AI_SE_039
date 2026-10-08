@@ -2,6 +2,7 @@
 # Environments
 .env
 .env.local
+**/cross-platform.local.json
 .env.*.local
 appsettings.Development.json
 .neon
@@ -44,4 +45,3 @@ build/
 Thumbs.db
 .neon
 .env.local
-

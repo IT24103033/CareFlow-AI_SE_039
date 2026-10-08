@@ -66,16 +66,9 @@ namespace CareFlowAI.Orchestrator.Tools
                     // The provider returned a non-JSON result.
                 }
 
-                // Keep the provider response as the message if it
-                // does not contain a recognizable appointment ID.
-                if (!string.IsNullOrWhiteSpace(bookingResult))
-                {
-                    return AppointmentActionResult.Success(
-                        bookingResult);
-                }
-
+                // Without a durable identifier the caller cannot verify or review a booking.
                 return AppointmentActionResult.ProviderError(
-                    "The tentative booking was created, but no appointment identifier was returned.");
+                    "The booking provider did not return a valid appointment identifier.");
             }
             catch (ArgumentException ex)
             {

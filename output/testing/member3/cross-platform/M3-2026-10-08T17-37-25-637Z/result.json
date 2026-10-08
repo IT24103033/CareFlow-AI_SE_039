@@ -1,0 +1,13 @@
+{
+  "runId": "M3-2026-10-08T17-37-25-637Z",
+  "startedAt": "2026-10-08T17:37:25.642Z",
+  "status": "Failed",
+  "stages": [],
+  "availability": {
+    "id": "b041b4ee-979b-404b-8db4-ad1a276dc191",
+    "doctorId": "22222222-2222-2222-2222-222222222220",
+    "date": "2026-10-09"
+  },
+  "error": "flutter-submit.log failed with exit 1; see saved log",
+  "finishedAt": "2026-10-08T17:38:29.541Z"
+}

@@ -1,0 +1,52 @@
+{
+  "id": "21c1912e-3873-49fc-8121-fc3f605d3c00",
+  "patientId": "1aceff5e-44c0-4fe7-bb9d-eccc634c1a92",
+  "patientName": "saman",
+  "symptoms": "I have a severe toothache and slight fever",
+  "imageUrl": null,
+  "severityLevel": "Medium",
+  "triageStatus": "InReview",
+  "doctorNotes": null,
+  "assignedDoctorId": null,
+  "createdAt": "2026-10-08T11:03:02.605521Z",
+  "updatedAt": "2026-10-08T11:03:24.416001Z",
+  "aiPlan": "{\"SchemaVersion\":2,\"Objective\":\"Prepare a triage assessment and a controlled plan for clinician review.\",\"SuggestedSpecialist\":\"General Practitioner\",\"UrgencyLevel\":\"Medium\",\"RecommendedAction\":\"The patient should be advised to schedule an urgent consultation with a general practitioner or a dentist for a clinical assessment of the toothache and fever. Recommend symptomatic relief for fever and pain management while awaiting assessment, and monitor for signs of spreading infection (e.g., facial swelling, difficulty swallowing, or high-grade fever).\",\"Rationale\":\"The patient reports a 3-day history of severe toothache accompanied by a slight fever. While the domain risk level is low, a toothache associated with systemic symptoms like fever suggests a potential odontogenic infection that requires clinical evaluation to rule out abscess or cellulitis and to determine the need for antibiotic therapy or dental intervention.\",\"AnalysisMethod\":\"GeminiAI\",\"Steps\":[{\"Id\":\"safety\",\"Agent\":\"SafetyAgent\",\"Tool\":\"CheckEmergencyRules\",\"DependsOn\":[],\"RequiresHumanApproval\":false,\"Status\":\"Pending\"},{\"Id\":\"find-slot\",\"Agent\":\"ActionAgent\",\"Tool\":\"GetAvailableSlots\",\"DependsOn\":[\"safety\"],\"RequiresHumanApproval\":false,\"Status\":\"Pending\"},{\"Id\":\"hold-slot\",\"Agent\":\"ActionAgent\",\"Tool\":\"CreateTentativeAppointment\",\"DependsOn\":[\"find-slot\"],\"RequiresHumanApproval\":false,\"Status\":\"Pending\"},{\"Id\":\"review\",\"Agent\":\"HumanReviewer\",\"Tool\":\"ReviewTriage\",\"DependsOn\":[\"hold-slot\"],\"RequiresHumanApproval\":true,\"Status\":\"Pending\"},{\"Id\":\"confirm\",\"Agent\":\"ActionAgent\",\"Tool\":\"ConfirmAppointment\",\"DependsOn\":[\"review\"],\"RequiresHumanApproval\":true,\"Status\":\"Pending\"},{\"Id\":\"notify\",\"Agent\":\"NotificationService\",\"Tool\":\"SendAppointmentNotification\",\"DependsOn\":[\"confirm\"],\"RequiresHumanApproval\":true,\"Status\":\"Pending\"}],\"Warnings\":[],\"Execution\":{\"Status\":\"Completed\",\"FailureCode\":null,\"ModelAttempts\":1,\"Events\":[{\"Operation\":\"GetPatientProfile\",\"Outcome\":\"Completed\",\"DurationMs\":1524},{\"Operation\":\"DomainAnalysis\",\"Outcome\":\"Completed\",\"DurationMs\":4392},{\"Operation\":\"AssessSymptoms\",\"Outcome\":\"Completed\",\"DurationMs\":2956},{\"Operation\":\"ValidatePlan\",\"Outcome\":\"Passed\",\"DurationMs\":0}]}}",
+  "aiAgentStatus": "Completed",
+  "approvalStatus": "Pending",
+  "planningExecution": {
+    "status": "Completed",
+    "failureCode": null,
+    "modelAttempts": 1,
+    "events": [
+      {
+        "operation": "GetPatientProfile",
+        "outcome": "Completed",
+        "durationMs": 1524
+      },
+      {
+        "operation": "DomainAnalysis",
+        "outcome": "Completed",
+        "durationMs": 4392
+      },
+      {
+        "operation": "AssessSymptoms",
+        "outcome": "Completed",
+        "durationMs": 2956
+      },
+      {
+        "operation": "ValidatePlan",
+        "outcome": "Passed",
+        "durationMs": 0
+      }
+    ]
+  },
+  "analysisMethod": "GeminiAI",
+  "tentativeAppointmentId": null,
+  "schedulingOutcome": "No suitable slots found for any matching doctor.",
+  "appointmentDetails": null,
+  "availableSlots": null,
+  "safetyVerdict": "Safe",
+  "safetySummary": "Emergency safety validation passed: No life-threatening red-flag emergency symptoms detected.",
+  "notificationOutcome": null,
+  "reviewHistories": []
+}

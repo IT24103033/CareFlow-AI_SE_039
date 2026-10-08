@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="59963541-b5bf-425b-bb53-bd53c1547894" name="@192 2026-10-08 18:52:19" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T18:52:19.4002040+05:30" queuing="2026-10-08T18:52:19.4002040+05:30" start="2026-10-08T18:52:19.0068810+05:30" finish="2026-10-08T18:52:19.4031770+05:30" />
+  <TestSettings name="default" id="50cb5824-b2a2-4891-a618-12009b596c74">
+    <Deployment runDeploymentRoot="_192_2026-10-08_18_52_19" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="7b80727f-0196-4f40-860f-4c30828dd7d4" testId="53e2f0fa-aec2-d71d-4ede-3f6b0fdae8d8" testName="CareFlowAI.API.Tests.DomainAnalysisAgentTests.Agent_throws_on_malformed_json_rather_than_silently_defaulting" computerName="192" duration="00:00:00.0315973" startTime="2026-10-08T18:52:19.3554080+05:30" endTime="2026-10-08T18:52:19.3554150+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7b80727f-0196-4f40-860f-4c30828dd7d4" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CareFlowAI.API.Tests.DomainAnalysisAgentTests.Agent_throws_on_malformed_json_rather_than_silently_defaulting" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="53e2f0fa-aec2-d71d-4ede-3f6b0fdae8d8">
+      <Execution id="7b80727f-0196-4f40-860f-4c30828dd7d4" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.DomainAnalysisAgentTests" name="Agent_throws_on_malformed_json_rather_than_silently_defaulting" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="53e2f0fa-aec2-d71d-4ede-3f6b0fdae8d8" executionId="7b80727f-0196-4f40-860f-4c30828dd7d4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.5.3.1+6b60a9e56a (64-bit .NET 8.0.29)
+[xUnit.net 00:00:00.05]   Discovering: CareFlowAI.API.Tests
+[xUnit.net 00:00:00.08]   Discovered:  CareFlowAI.API.Tests
+[xUnit.net 00:00:00.08]   Starting:    CareFlowAI.API.Tests
+[xUnit.net 00:00:00.12]   Finished:    CareFlowAI.API.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

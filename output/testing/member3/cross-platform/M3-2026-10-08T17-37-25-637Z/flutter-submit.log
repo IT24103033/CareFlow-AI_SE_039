@@ -1,0 +1,38 @@
+00:00 +0: loading /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart
+Running Gradle task 'assembleDebug'...                          
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+Running Gradle task 'assembleDebug'...                             42.8s
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Installing build/app/outputs/flutter-apk/app-debug.apk...          467ms
+Error: ADB exited with exit code 1
+Performing Streamed Install
+
+adb: failed to install /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/build/app/outputs/flutter-apk/app-debug.apk: 
+Exception occurred while executing 'install':
+android.os.ParcelableException: java.io.IOException: Requested internal only, but not enough space
+	at android.util.ExceptionUtils.wrap(ExceptionUtils.java:34)
+	at com.android.server.pm.PackageInstallerService.createSession(PackageInstallerService.java:752)
+	at com.android.server.pm.PackageManagerShellCommand.doCreateSession(PackageManagerShellCommand.java:4050)
+	at com.android.server.pm.PackageManagerShellCommand.doRunInstall(PackageManagerShellCommand.java:1636)
+	at com.android.server.pm.PackageManagerShellCommand.runInstall(PackageManagerShellCommand.java:1572)
+	at com.android.server.pm.PackageManagerShellCommand.onCommand(PackageManagerShellCommand.java:246)
+	at com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
+	at android.os.ShellCommand.exec(ShellCommand.java:38)
+	at com.android.server.pm.PackageManagerService$IPackageManagerImpl.onShellCommand(PackageManagerService.java:6721)
+	at android.os.Binder.shellCommand(Binde
+Uninstalling old version...
+Installing build/app/outputs/flutter-apk/app-debug.apk...          15.4s
+Error: ADB exited with exit code 1
+Performing Streamed Install
+
+adb: failed to install /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/build/app/outputs/flutter-apk/app-debug.apk: Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]
+Error: Failed to install APK again.
+00:00 +0 -1: loading /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart [E]
+  Failed to load "/Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart": Unable to start the app on the device.
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart: loading /Users/sujana/Documents/CareFlow-AI_SE_039/mobile_app/integration_test/member3_cross_platform_test.dart

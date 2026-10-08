@@ -1,0 +1,164 @@
+erDiagram
+    PatientProfiles {
+        Guid Id PK
+        string FullName
+        DateOnly DateOfBirth
+        string BloodGroup
+        string MedicalHistorySummary
+        string Email "nullable"
+        string Phone "nullable"
+        DateTime CreatedAt
+        bool IsActive
+    }
+    Wards {
+        Guid Id PK
+        string WardNumber
+        string WardType
+        int Capacity
+        int OccupiedBeds
+    }
+    Admissions {
+        Guid Id PK
+        Guid PatientProfileId FK
+        Guid WardId FK
+        DateTime AdmittedAt
+        DateTime DischargedAt "nullable"
+        string RiskLevel
+        string Status
+    }
+    TriageRecords {
+        Guid Id PK
+        Guid PatientId FK
+        string Symptoms
+        Guid AttachmentId FK "nullable"
+        string SeverityLevel
+        Guid TentativeAppointmentId "nullable; application reference, not FK"
+        string TriageStatus
+        string DoctorNotes "nullable"
+        Guid AssignedDoctorId "nullable; application reference, not FK"
+        DateTime CreatedAt
+        DateTime UpdatedAt
+    }
+    AgentWorkflows {
+        Guid Id PK
+        Guid TriageRecordId FK
+        string AgentName
+        string AgentStatus
+        string ApprovalStatus
+        string InputPayload
+        string OutputPayload "nullable"
+        string ErrorMessage "nullable"
+        DateTime StartedAt "nullable"
+        DateTime CompletedAt "nullable"
+        DateTime CreatedAt
+        DateTime UpdatedAt
+    }
+    TriageReviewHistories {
+        Guid Id PK
+        Guid TriageRecordId FK
+        Guid AssignedDoctorId "nullable; application reference, not FK"
+        string Action
+        string Notes "nullable"
+        string SymptomsAtReview
+        Guid AgentWorkflowStateId FK "nullable"
+        DateTime CreatedAt
+    }
+    TriageAttachments {
+        Guid Id PK
+        string CloudinaryPublicId
+        Guid UploaderId "application reference, not FK"
+        Guid TriageRecordId FK "nullable"
+        DateTime CreatedAt
+    }
+    Doctors {
+        Guid Id PK
+        string FullName
+        string Specialization
+        string Email
+        bool IsActive
+    }
+    DoctorAvailabilities {
+        Guid Id PK
+        Guid DoctorId FK
+        DateOnly Date
+        TimeOnly StartTime
+        TimeOnly EndTime
+    }
+    Appointments {
+        Guid Id PK
+        Guid DoctorId FK
+        Guid PatientId FK
+        DateOnly AppointmentDate
+        TimeOnly StartTime
+        TimeOnly EndTime
+        string Status
+        string ApprovalStatus
+        Guid ApprovedByDoctorId "nullable; application reference, not FK"
+        DateTime ApprovedAt "nullable"
+        DateTime CreatedAt
+    }
+    Medicines {
+        Guid Id PK
+        string Name
+        string Category
+        string Description
+        string Manufacturer
+        int StockQuantity
+        int ReorderLevel
+        decimal UnitPrice
+        DateOnly ExpiryDate
+        bool IsActive
+        DateTime CreatedAt
+        DateTime UpdatedAt
+    }
+    Prescriptions {
+        Guid Id PK
+        Guid PatientId FK
+        Guid TriageRecordId FK
+        Guid IssuedByDoctorId "nullable; application reference, not FK"
+        string Status
+        string Notes "nullable"
+        string AiSafetyCheckResult "nullable"
+        string AiSafetyStatus "nullable"
+        bool NotificationSent
+        string NotificationChannel "nullable"
+        DateTime NotifiedAt "nullable"
+        string NotificationFailureReason "nullable"
+        int NotificationRetryCount
+        DateTime CreatedAt
+        DateTime UpdatedAt
+    }
+    PrescriptionItems {
+        Guid Id PK
+        Guid PrescriptionId FK
+        Guid MedicineId FK
+        int Quantity
+        string Dosage
+        int DurationDays
+    }
+    Users {
+        Guid Id PK
+        string Username
+        string FullName
+        string Email "nullable"
+        string Password
+        string Role
+        Guid DoctorId "nullable; application reference, not FK"
+        Guid PatientProfileId "nullable; application reference, not FK"
+        DateTime CreatedAt
+    }
+    PatientProfiles ||--o{ Admissions : "F01 PatientProfileId"
+    Wards ||--o{ Admissions : "F02 WardId"
+    PatientProfiles ||--o{ TriageRecords : "F03 PatientId"
+    TriageAttachments |o--o{ TriageRecords : "F04 AttachmentId"
+    TriageRecords |o--o{ TriageAttachments : "F05 TriageRecordId"
+    TriageRecords ||--o{ AgentWorkflows : "F06 TriageRecordId"
+    TriageRecords ||--o{ TriageReviewHistories : "F07 TriageRecordId"
+    AgentWorkflows |o--o{ TriageReviewHistories : "F08 AgentWorkflowStateId"
+    Doctors ||--o{ DoctorAvailabilities : "F09 DoctorId"
+    Doctors ||--o{ Appointments : "F10 DoctorId"
+    PatientProfiles ||--o{ Appointments : "F11 PatientId"
+    PatientProfiles ||--o{ Prescriptions : "F12 PatientId"
+    TriageRecords ||--o{ Prescriptions : "F13 TriageRecordId"
+    Prescriptions ||--o{ PrescriptionItems : "F14 PrescriptionId"
+    Medicines ||--o{ PrescriptionItems : "F15 MedicineId"

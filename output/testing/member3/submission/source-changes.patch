@@ -1,0 +1,105 @@
+diff --git a/ai-orchestrator/Tools/CreateTentativeBookingTool.cs b/ai-orchestrator/Tools/CreateTentativeBookingTool.cs
+index 6f11a15..c9a95f5 100644
+--- a/ai-orchestrator/Tools/CreateTentativeBookingTool.cs
++++ b/ai-orchestrator/Tools/CreateTentativeBookingTool.cs
+@@ -66,16 +66,9 @@ namespace CareFlowAI.Orchestrator.Tools
+                     // The provider returned a non-JSON result.
+                 }
+ 
+-                // Keep the provider response as the message if it
+-                // does not contain a recognizable appointment ID.
+-                if (!string.IsNullOrWhiteSpace(bookingResult))
+-                {
+-                    return AppointmentActionResult.Success(
+-                        bookingResult);
+-                }
+-
++                // Without a durable identifier the caller cannot verify or review a booking.
+                 return AppointmentActionResult.ProviderError(
+-                    "The tentative booking was created, but no appointment identifier was returned.");
++                    "The booking provider did not return a valid appointment identifier.");
+             }
+             catch (ArgumentException ex)
+             {
+@@ -89,4 +82,4 @@ namespace CareFlowAI.Orchestrator.Tools
+             }
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/backend-api.Tests/CareFlowAI.API.Tests.csproj b/backend-api.Tests/CareFlowAI.API.Tests.csproj
+index 42209b5..f100c05 100644
+--- a/backend-api.Tests/CareFlowAI.API.Tests.csproj
++++ b/backend-api.Tests/CareFlowAI.API.Tests.csproj
+@@ -26,4 +26,9 @@
+     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
+   </ItemGroup>
+ 
++  <ItemGroup>
++    <None Include="../output/testing/member3/live-ai/*.json"
++          Link="Member3Evidence/%(Filename)%(Extension)"
++          CopyToOutputDirectory="PreserveNewest" />
++  </ItemGroup>
+ </Project>
+diff --git a/backend-api.Tests/PlanningAgentTests.cs b/backend-api.Tests/PlanningAgentTests.cs
+index 17018cf..c592367 100644
+--- a/backend-api.Tests/PlanningAgentTests.cs
++++ b/backend-api.Tests/PlanningAgentTests.cs
+@@ -145,6 +145,44 @@ public class PlanningAgentTests
+         Assert.Empty(Output(state).Steps);
+     }
+ 
++    // M3-AI-RETRY: configured limits include both supported boundaries and out-of-range values.
++    [Theory]
++    [InlineData(-1, 1)]
++    [InlineData(0, 1)]
++    [InlineData(1, 1)]
++    [InlineData(2, 2)]
++    [InlineData(3, 3)]
++    [InlineData(4, 3)]
++    public async Task Invalid_outputs_respect_configured_attempt_limits_and_fail_safely(
++        int configuredAttempts, int expectedAttempts)
++    {
++        // Arrange: every assessment response is invalid, so recovery cannot end retries early.
++        var record = Record();
++        var state = PlanningAgentService.CreateRunningState(record, "three days");
++        var client = new ClientStub((_, _) => Task.FromResult("{}"));
++        var config = Config(("Planning:MaxAttempts",
++            configuredAttempts.ToString(System.Globalization.CultureInfo.InvariantCulture)));
++
++        // Act: run the real planning service with a controlled assessment client.
++        await new PlanningAgentService(Context(), client, Domain(), config).RunAsync(record, state);
++
++        // Assert: external calls and recorded attempts agree, and failure cannot authorize actions.
++        var plan = Output(state);
++        Assert.Equal(expectedAttempts, client.Calls);
++        Assert.NotNull(plan.Execution);
++        Assert.Equal(expectedAttempts, plan.Execution.ModelAttempts);
++        Assert.Equal(expectedAttempts, plan.Execution.Events.Count(
++            e => e.Operation == "AssessSymptoms" && e.Outcome == "InvalidOutput"));
++        Assert.Equal("Failed", state.AgentStatus);
++        Assert.Equal("Failed", plan.Execution.Status);
++        Assert.Equal("INVALID_MODEL_OUTPUT", state.ErrorMessage);
++        Assert.Equal("INVALID_MODEL_OUTPUT", plan.Execution.FailureCode);
++        Assert.Equal("Pending", state.ApprovalStatus);
++        Assert.Empty(plan.Steps);
++        Assert.Empty(plan.UrgencyLevel);
++        Assert.Null(TriageReviewRules.ReadPlan(state.OutputPayload));
++    }
++
+     [Fact]
+     public async Task Invalid_first_response_can_recover_with_recorded_attempts()
+     {
+diff --git a/backend-api/Controllers/TriageController.cs b/backend-api/Controllers/TriageController.cs
+index 8163ebe..7338634 100644
+--- a/backend-api/Controllers/TriageController.cs
++++ b/backend-api/Controllers/TriageController.cs
+@@ -269,6 +269,7 @@ namespace CareFlowAI.API.Controllers
+         {
+             var record = await _context.TriageRecords
+                 .Include(t => t.AgentWorkflows).Include(t => t.Attachment)
++                .Include(t => t.ReviewHistories)
+                 .FirstOrDefaultAsync(t => t.Id == id);
+ 
+             if (record == null)

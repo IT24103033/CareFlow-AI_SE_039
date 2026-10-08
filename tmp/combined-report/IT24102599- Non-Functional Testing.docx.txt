@@ -1,0 +1,110 @@
+IT24102599 – Dulshan P A
+SE 01.02.WE
+Non-Functional Testing Scope
+The individual testing contribution focused on the non-functional aspects of the CareFlow AI backend API. Testing was carried out on the locally running system using k6, OWASP ZAP, and manual API checks. The main areas selected were performance, security, and reliability.
+Performance Testing
+A k6 load test was carried out on the authenticated /api/appointments endpoint. The test gradually increased the number of virtual users up to 5 while monitoring response times and request failures. This helped check how the API performed under a small amount of concurrent load.
+Security Testing
+Security checks covered both automated scanning and manual API testing. OWASP ZAP was used to scan the API for common security issues. Additional checks were done for unauthenticated access and role-based authorization, including verifying that a Doctor could not access an Admin-only endpoint.
+Reliability Testing
+A repeated request test was carried out using k6 on the authenticated /api/appointments endpoint. The same request was sent multiple times to check whether the API remained available and continued to return successful responses during normal repeated use.
+Performance Testing — k6
+Admin Appointment API success
+Endpoint: GET /api/appointments
+Authentication: Admin 
+Result: Successful 
+HTTP status: 200 OK 
+Purpose: Establishes a working authenticated API endpoint for performance testing. 
+k6 installation
+Test 1 — Baseline
+1 VU → 5 iterations
+k6 smoke test result
+Test 2 — Load Test
+k6 load test validation
+Test 3 — Load Test Validation / Authentication Validation 
+Failure Rate Threshold: <5% — PASS
+Overall Result: PASS
+Security Testing — OWASP ZAP
+Security Test 1 — Unauthenticated Access
+Endpoint - GET /api/appointments 
+Authentication - None
+Expected Result - 401 Unauthorized
+Actual Result - 401 Unauthorized
+Status - PASS
+Download OWASP ZAP Docker image
+Security Test 2 — OWASP ZAP Baseline Scan
+Security Test 3 — Role-Based Authorization
+Authorization test 403
+This confirms that the authenticated Doctor user cannot access the Admin-only /api/appointments endpoint.
+Reliability Testing
+k6 repeated API availability test
+Git commits
+TABLE 0
+Metric | Result
+ | 1
+Iterations | 5
+Checks passed | 6/6 (100%)
+Checks failed | 0
+HTTP request failure rate | 0%
+Average HTTP response time | 357.67 ms
+Median | 332.41 ms
+P95 | 439.13 ms
+Maximum | 461.37 ms
+TABLE 1
+Metric | Result
+Virtual users | 1
+Iterations | 2
+HTTP failure rate | 0.00%
+Average response time | 358.19 ms
+Median response time | 325.15 ms
+P90 | 410.28 ms
+P95 | 420.92 ms
+Maximum response time | 431.56 ms
+Checks passed | 4/4
+TABLE 2
+Metric
+ | Result
+Maximum VUs | 5
+Test duration | 1m 10s
+Total HTTP requests | 160
+Completed iterations | 159
+Checks passed | 161/161 (100%)
+HTTP failure rate | 0.00%
+Average response time | 343.83 ms
+Median | 318.98 ms
+P90 | 342.78 ms
+P95 | 360.75 ms
+Maximum | 2.23 s
+P95 threshold | < 1000 ms — PASS
+TABLE 3
+Item | Result
+URLs scanned | 3
+PASS | 66
+WARN | 1
+FAIL | 0
+INFO | 0
+Overall | PASS
+Warning locations | /robots.txt, /sitemap.xml
+Main warning | Storable and Cacheable Content
+TABLE 4
+Item | Result
+User Role | Doctor
+Endpoint | GET /api/appointments
+Required Role | Admin
+Actual Result | 403 Forbidden
+Expected Result | 403 Forbidden
+Status | PASS
+TABLE 5
+Metric | Result
+Virtual Users | 1
+Iterations | 30
+Test duration | 40.4 seconds
+HTTP requests | 31
+Failed requests | 0
+HTTP failure rate | 0.00%
+Checks | 32/32 (100%)
+Avg response time | 335.23 ms
+P95 response time | 393.37 ms
+Max response time | 436.89 ms
+Reliability threshold | 0% failures
+Overall result | PASS

@@ -1,0 +1,95 @@
+SE3110 · QUALITY MANAGEMENT IN SOFTWARE ENGINEERING
+Test Case Document 
+Component A - Admissions & Ward Management
+Backend & Database Testing
+CareFlow AI | Group SE_039
+Role and Testing Scope
+As Member 1, my primary responsibility was validating the backend architecture and database integrity of the CareFlow AI system. The testing scope encompasses the ASP.NET Core Web API (specifically the AdmissionsController, PatientProfilesController, and WardsController) and the underlying PostgreSQL database. 
+The objective was to ensure that data validation rules, business logic (such as ward capacity limits), and cross-component API communication function reliably before being consumed by the React and Flutter frontend layers.
+Selected Tools and Justification
+To thoroughly evaluate the backend, I utilized a combination of API and unit testing frameworks:
+Postman: Selected for API integration and validation testing. Postman allows for rapid construction of HTTP requests, making it the ideal tool to simulate frontend interactions, manipulate JSON payloads, and verify status codes (such as 200 OK, 400 Bad Request) directly against the live backend server without relying on the UI.
+xUnit and Moq: Selected as the primary frameworks for C# backend unit testing. xUnit is the industry-standard testing framework for .NET Core, providing a robust test runner. Moq was utilized to mock the Entity Framework Core database context, allowing me to isolate and test the business logic of our controllers without requiring a live database connection for every unit test.
+Configuration & Setup: The test environment was configured by running the ASP.NET Core API locally (dotnet run) connected to the development PostgreSQL instance via pgAdmin. Postman requests were organized into a dedicated CareFlow API Collection to streamline execution.
+Tests were executed systematically across both Postman and the Visual Studio xUnit test runner.
+API Execution: Postman was used to send requests to the running localhost endpoints. The responses were evaluated based on the HTTP status code, response time, and exact JSON schema matching.
+Unit Execution: xUnit tests were executed via the dotnet test CLI command, verifying that all mocked controller methods returned the expected IActionResult types.
+Test Case Designs and Scenarios (API Testing)
+The test cases were designed to evaluate the API and database under three distinct conditions to ensure robust error handling and data integrity:
+Normal Scenarios: Designed to verify the "happy path." For example, submitting a valid JSON payload to POST /api/PatientProfiles to ensure the API returns a 201 Created status and accurately persists the record to PostgreSQL.
+Invalid Scenarios: Designed to test system validation rules. For example, submitting an empty patientName to the AI Risk Analysis endpoint, or attempting to admit a patient using an invalid wardId. These tests check that the API gracefully rejects the request with a 400 Bad Request rather than crashing the server.
+Boundary/Edge Scenarios: Designed to test system limits. For example, submitting an exceptionally large string for a patient's medical history, or attempting to admit a patient to a ward where OccupiedBeds exactly equals the maximum Capacity. These tests verify database constraints and payload size handling.
+ 
+API-TC01
+API-TC03
+API-TC04
+API-TC06
+API-TC07
+API-TC08
+API-TC09
+DB-TC10
+Defect Report and Resolution 
+Defect ID: API-DEF-01: AI Analysis Validation Failure
+Description: The AI Risk Analysis endpoint fails to validate empty patient names before sending the request to the external Gemini AI service. It incorrectly returns a 200 OK status instead of a 400 Bad Request.
+Severity: Medium (It does not crash the backend, but it wastes cloud API quotas and violates REST API validation standards).
+Priority: High (Needs to be fixed immediately to ensure frontend forms behave correctly).
+Steps to reproduce: 
+1. Run the ASP.NET Core backend locally (dotnet run).
+2. Open Postman and create a POST request to http://localhost:5241/api/Admissions/analyze-risk.
+3. Set the Body to raw JSON and enter: {"patientName": "", "currentSymptoms": "Chest pain"}.
+4. Click Send.
+5. Observe that the HTTP Status is 200 OK instead of the expected validation error.
+Evidence: 
+Status: Fixed/ Closed
+Retest Result: Passed
+Fix Applied: Added a string.IsNullOrWhiteSpace(request.PatientName) check in AdmissionsController.cs to return a BadRequest.
+Retest: Executing the exact same Postman steps now successfully intercepts the bad data and returns a 400 Bad Request with the message: "Patient name is strictly required."
+Defect ID: API-DEF-02: Patient Blood Group Validation Bypass
+Description: The Patient Registration endpoint accepts invalid or unrecognized blood group values ("Z+") without enforcing strict medical format constraints. It incorrectly persists the invalid data and returns a 201 Created status instead of a 400 Bad Request.
+Severity: Medium (allows corrupt or garbage data into the core patient profile database).
+Priority: High (must be fixed to maintain medical data integrity).
+Steps to reproduce: 
+1. Run the ASP.NET Core backend locally (dotnet run).
+2. Open Postman and create a POST request to http://localhost:5241/api/PatientProfiles.
+3. Set the Body to raw JSON and enter: {"fullName": "Test User TC05", "dateOfBirth": "1990-05-15", "bloodGroup": "Z+", "medicalHistorySummary": "No known allergies."}.
+4. Click Send.
+5. Observe that the HTTP Status is 201 Created instead of the expected data validation error.
+Evidence: 
+Status: Fixed/ Closed
+Retest Result: Passed
+Fix Applied: Added an allowed-list validation check for standard blood groups (A+, A-, B+, B-, AB+, AB-, O+, O-) in PatientProfilesController.cs to return a 400 Bad Request if an invalid string is provided.
+Retest: Executing the exact same Postman steps with the invalid blood group ("Z+") now successfully intercepts the unapproved data format and returns a 400 Bad Request with the validation error message.
+Automated Testing (xUnit)
+Test Scripts
+     Successful Test Execution
+Test Execution Summary
+Total Tests Executed: 13 (10 Manual API Postman tests + 3 Automated xUnit tests)
+Tests Passed on First Run: 11
+Tests Failed (Defects Identified): 2
+Defects Fixed: 2 (AI Endpoint Name Validation, Patient Registration Blood Group Validation)
+Final Retest Status: 100% Passed
+Conclusion: The backend API and PostgreSQL database for the Admissions and Patient Registration modules are stable. All endpoints validate data correctly, database constraints (like Foreign Keys and null checks) actively prevent bad data insertion, and the automated xUnit suite successfully verifies the core business logic.
+Evidence of Technical Contribution 
+All test scripts and backend bug fixes were committed directly to the project repository.
+GitHub Repository: https://github.com/IT24103033/CareFlow-AI_SE_039.git
+Repository Branch: feature/backend-testing 
+My technical contribution is evidenced by the Git commit history, specifically commits related to AdmissionsController.cs bug fixes and the creation of the CareFlow.Tests xUnit project. 
+TABLE 0
+Student | Bandara M M S D
+Student ID | IT24103089
+Individual Testing Area | ASP.NET Core API and the PostgreSQL database Testing
+Submission Date | 08 October 2026
+TABLE 1
+Test ID | Feature | Scenario Type | Preconditions | Input / Steps | Expected Result | Actual Result | Status
+API-TC01 | AI Risk Analysis | Normal | API is running | POST /api/Admissions/analyze-risk with valid patientName and currentSymptoms | Returns 200 OK with JSON containing riskLevel, flaggedFactors, and recommendedWardType | Returns 200 OK with JSON containing riskLevel, flaggedFactors, and recommendedWardType | Pass
+API-TC02 | AI Risk Analysis | Invalid | API is running | POST /api/Admissions/analyze-risk with missing or empty patientName | Returns 400 Bad Request with validation error message | Returns 200 OK with JSON containing riskLevel, flaggedFactors as not provided and recommendedWardType as General | Fail
+API-TC03 | AI Risk Analysis | Boundary | API is running | POST /api/Admissions/analyze-risk with an extremely long string (10,000 chars) for currentSymptoms | API handles the payload safely (returns 200 OK or 400 Bad Request without crashing) | API handles the payload safely and returns 200 OK without crashing) | Pass
+
+API-TC04 | Patient Registration | Normal | API & DB connected | POST /api/PatientProfiles with valid JSON (Name, DOB, BloodGroup, History) | Returns 201 Created or 200 OK and saves to DB | Returns 201 Created and saves to DB | Pass
+API-TC05 | Patient Registration | Invalid | API is running | POST /api/PatientProfiles with an invalid bloodGroup (like "Z+") | Returns 400 Bad Request for invalid data format | Returns a 201 Created and accepts invalid data | Fail
+API-TC06 | Patient Removal
+(Admin) | Normal | DB contains a test patient | DELETE /api/PatientProfiles/{id} using a valid patient ID | Returns 204 No Content or 200 OK; the patient record is completely removed from DB | Returns 204 No Content and patient is removed from DB | Pass
+API-TC07 | History Search | Normal | DB contains "Jane Doe" | GET /api/PatientProfiles/search?name=Jane | Returns 200 OK with a JSON array containing Jane's record | Returns 200 OK with a JSON array containing Jane's record | Pass
+API-TC08 | History Search | Edge | API & DB connected | GET /api/PatientProfiles/search?name=NonExistentUser | Returns 200 OK with an empty array [] (or 404 Not Found) | Returns 200 OK with an empty array []  | Pass
+API-TC09 | Ward Fetch | Normal | DB contains Wards | GET /api/Wards | Returns 200 OK with a JSON array of all wards and capacities | Returns 200 OK with a JSON array of all wards and capacities | Pass
+DB-TC10 | Database Security (EF Core) | Edge | API & DB connected | GET /api/PatientProfiles/search ?name='; DROP TABLE "Admissions";-- | Entity Framework safely parameterizes the query. Returns 200 OK with an empty array [] (or 404). The database table is protected and not dropped. | Returns 200 OK with an empty array []. The table is not dropped. | Pass

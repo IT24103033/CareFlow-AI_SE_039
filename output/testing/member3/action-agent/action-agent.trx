@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="c5970f33-da23-4971-835e-0d17def1cbe2" name="@192 2026-10-08 18:59:31" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T18:59:31.6838190+05:30" queuing="2026-10-08T18:59:31.6838190+05:30" start="2026-10-08T18:59:31.2981100+05:30" finish="2026-10-08T18:59:31.6863940+05:30" />
+  <TestSettings name="default" id="ed3cd8a4-74af-4c50-a036-715fd1b19236">
+    <Deployment runDeploymentRoot="_192_2026-10-08_18_59_31" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="9cf02fab-f6b3-4c83-9684-f8e125e60052" testId="85f6ac47-fb76-e236-e6f7-901541859960" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;wrong-slot&quot;, expected: Unavailable, calls: &quot;availability&quot;)" computerName="192" duration="00:00:00.0308920" startTime="2026-10-08T18:59:31.6379990+05:30" endTime="2026-10-08T18:59:31.6380000+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9cf02fab-f6b3-4c83-9684-f8e125e60052" />
+    <UnitTestResult executionId="c326e258-ae2d-4ad6-b189-95a3ba1e0564" testId="430c10fc-7b27-0640-7a93-fad675cb1b48" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;no-slots&quot;, expected: Unavailable, calls: &quot;availability&quot;)" computerName="192" duration="00:00:00.0000051" startTime="2026-10-08T18:59:31.6407010+05:30" endTime="2026-10-08T18:59:31.6407010+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c326e258-ae2d-4ad6-b189-95a3ba1e0564" />
+    <UnitTestResult executionId="1a4764cf-6842-4c3a-a89a-0aaf56027056" testId="2e465c67-27eb-f33d-1fec-6d1d820ea3f8" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;conflict&quot;, expected: Conflict, calls: &quot;availability,conflict&quot;)" computerName="192" duration="00:00:00.0000374" startTime="2026-10-08T18:59:31.6407520+05:30" endTime="2026-10-08T18:59:31.6407520+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1a4764cf-6842-4c3a-a89a-0aaf56027056" />
+    <UnitTestResult executionId="c2ff01b8-4c6d-4dae-b364-433d8411e4ba" testId="562d35ad-494a-d6e4-d973-9c79889c904d" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;success&quot;, expected: Success, calls: &quot;availability,conflict,booking&quot;)" computerName="192" duration="00:00:00.0010092" startTime="2026-10-08T18:59:31.6406890+05:30" endTime="2026-10-08T18:59:31.6406890+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c2ff01b8-4c6d-4dae-b364-433d8411e4ba" />
+    <UnitTestResult executionId="ed24618c-b2c4-4078-8491-5706670c3e1c" testId="883e194d-cdfa-7e05-a74a-4b7d4564410a" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;missing-id&quot;, expected: ProviderError, calls: &quot;availability,conflict,booking&quot;)" computerName="192" duration="00:00:00.0016512" startTime="2026-10-08T18:59:31.6396670+05:30" endTime="2026-10-08T18:59:31.6396670+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ed24618c-b2c4-4078-8491-5706670c3e1c" />
+    <UnitTestResult executionId="53e76189-cc54-4d99-916c-a6b8738dbfae" testId="39c7b918-3119-3796-5c0a-abfd6b421f02" testName="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;provider-error&quot;, expected: ProviderError, calls: &quot;availability&quot;)" computerName="192" duration="00:00:00.0042795" startTime="2026-10-08T18:59:31.6073250+05:30" endTime="2026-10-08T18:59:31.6073330+05:30" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="53e76189-cc54-4d99-916c-a6b8738dbfae" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;conflict&quot;, expected: Conflict, calls: &quot;availability,conflict&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="2e465c67-27eb-f33d-1fec-6d1d820ea3f8">
+      <Execution id="1a4764cf-6842-4c3a-a89a-0aaf56027056" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;success&quot;, expected: Success, calls: &quot;availability,conflict,booking&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="562d35ad-494a-d6e4-d973-9c79889c904d">
+      <Execution id="c2ff01b8-4c6d-4dae-b364-433d8411e4ba" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;provider-error&quot;, expected: ProviderError, calls: &quot;availability&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="39c7b918-3119-3796-5c0a-abfd6b421f02">
+      <Execution id="53e76189-cc54-4d99-916c-a6b8738dbfae" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;missing-id&quot;, expected: ProviderError, calls: &quot;availability,conflict,booking&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="883e194d-cdfa-7e05-a74a-4b7d4564410a">
+      <Execution id="ed24618c-b2c4-4078-8491-5706670c3e1c" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;wrong-slot&quot;, expected: Unavailable, calls: &quot;availability&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="85f6ac47-fb76-e236-e6f7-901541859960">
+      <Execution id="9cf02fab-f6b3-4c83-9684-f8e125e60052" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+    <UnitTest name="CareFlowAI.API.Tests.Member3AgentTests.Action_agent_enforces_tool_order_and_stops_on_failure(scenario: &quot;no-slots&quot;, expected: Unavailable, calls: &quot;availability&quot;)" storage="/users/sujana/documents/careflow-ai_se_039/backend-api.tests/bin/debug/net8.0/careflowai.api.tests.dll" id="430c10fc-7b27-0640-7a93-fad675cb1b48">
+      <Execution id="c326e258-ae2d-4ad6-b189-95a3ba1e0564" />
+      <TestMethod codeBase="/Users/sujana/Documents/CareFlow-AI_SE_039/backend-api.Tests/bin/Debug/net8.0/CareFlowAI.API.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="CareFlowAI.API.Tests.Member3AgentTests" name="Action_agent_enforces_tool_order_and_stops_on_failure" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="85f6ac47-fb76-e236-e6f7-901541859960" executionId="9cf02fab-f6b3-4c83-9684-f8e125e60052" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="430c10fc-7b27-0640-7a93-fad675cb1b48" executionId="c326e258-ae2d-4ad6-b189-95a3ba1e0564" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e465c67-27eb-f33d-1fec-6d1d820ea3f8" executionId="1a4764cf-6842-4c3a-a89a-0aaf56027056" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="562d35ad-494a-d6e4-d973-9c79889c904d" executionId="c2ff01b8-4c6d-4dae-b364-433d8411e4ba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="883e194d-cdfa-7e05-a74a-4b7d4564410a" executionId="ed24618c-b2c4-4078-8491-5706670c3e1c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="39c7b918-3119-3796-5c0a-abfd6b421f02" executionId="53e76189-cc54-4d99-916c-a6b8738dbfae" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="6" executed="6" passed="6" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.5.3.1+6b60a9e56a (64-bit .NET 8.0.29)
+[xUnit.net 00:00:00.05]   Discovering: CareFlowAI.API.Tests
+[xUnit.net 00:00:00.07]   Discovered:  CareFlowAI.API.Tests
+[xUnit.net 00:00:00.07]   Starting:    CareFlowAI.API.Tests
+[xUnit.net 00:00:00.13]   Finished:    CareFlowAI.API.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

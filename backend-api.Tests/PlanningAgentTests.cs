@@ -145,6 +145,44 @@ public class PlanningAgentTests
         Assert.Empty(Output(state).Steps);
     }
 
+    // M3-AI-RETRY: configured limits include both supported boundaries and out-of-range values.
+    [Theory]
+    [InlineData(-1, 1)]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(4, 3)]
+    public async Task Invalid_outputs_respect_configured_attempt_limits_and_fail_safely(
+        int configuredAttempts, int expectedAttempts)
+    {
+        // Arrange: every assessment response is invalid, so recovery cannot end retries early.
+        var record = Record();
+        var state = PlanningAgentService.CreateRunningState(record, "three days");
+        var client = new ClientStub((_, _) => Task.FromResult("{}"));
+        var config = Config(("Planning:MaxAttempts",
+            configuredAttempts.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+        // Act: run the real planning service with a controlled assessment client.
+        await new PlanningAgentService(Context(), client, Domain(), config).RunAsync(record, state);
+
+        // Assert: external calls and recorded attempts agree, and failure cannot authorize actions.
+        var plan = Output(state);
+        Assert.Equal(expectedAttempts, client.Calls);
+        Assert.NotNull(plan.Execution);
+        Assert.Equal(expectedAttempts, plan.Execution.ModelAttempts);
+        Assert.Equal(expectedAttempts, plan.Execution.Events.Count(
+            e => e.Operation == "AssessSymptoms" && e.Outcome == "InvalidOutput"));
+        Assert.Equal("Failed", state.AgentStatus);
+        Assert.Equal("Failed", plan.Execution.Status);
+        Assert.Equal("INVALID_MODEL_OUTPUT", state.ErrorMessage);
+        Assert.Equal("INVALID_MODEL_OUTPUT", plan.Execution.FailureCode);
+        Assert.Equal("Pending", state.ApprovalStatus);
+        Assert.Empty(plan.Steps);
+        Assert.Empty(plan.UrgencyLevel);
+        Assert.Null(TriageReviewRules.ReadPlan(state.OutputPayload));
+    }
+
     [Fact]
     public async Task Invalid_first_response_can_recover_with_recorded_attempts()
     {
