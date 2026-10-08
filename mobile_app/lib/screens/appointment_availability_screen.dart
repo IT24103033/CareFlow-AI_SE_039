@@ -4,7 +4,14 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 class AppointmentAvailabilityScreen extends StatefulWidget {
-  const AppointmentAvailabilityScreen({super.key});
+  final ApiService? apiService;
+  final String? initialPatientId;
+
+  const AppointmentAvailabilityScreen({
+    super.key,
+    this.apiService,
+    this.initialPatientId,
+  });
 
   @override
   State<AppointmentAvailabilityScreen> createState() =>
@@ -13,7 +20,7 @@ class AppointmentAvailabilityScreen extends StatefulWidget {
 
 class _AppointmentAvailabilityScreenState
     extends State<AppointmentAvailabilityScreen> {
-  final ApiService _apiService = ApiService();
+  late final ApiService _apiService;
 
   // ---------------------------------------------------------
   // State
@@ -69,7 +76,18 @@ class _AppointmentAvailabilityScreenState
   @override
   void initState() {
     super.initState();
-    _loadPatient();
+
+    // Use the injected fake service during testing.
+    // Use the real ApiService during normal application use.
+    _apiService = widget.apiService ?? ApiService();
+
+    // Use the supplied patient ID during testing.
+    // Otherwise load the logged-in patient's ID normally.
+    if (widget.initialPatientId != null) {
+      patientId = widget.initialPatientId;
+    } else {
+      _loadPatient();
+    }
   }
 
   // ---------------------------------------------------------
@@ -166,11 +184,7 @@ class _AppointmentAvailabilityScreenState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to search doctors: ${e.toString()}',
-          ),
-        ),
+        SnackBar(content: Text('Failed to search doctors: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
@@ -209,9 +223,7 @@ class _AppointmentAvailabilityScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Failed to load available slots: ${e.toString()}',
-          ),
+          content: Text('Failed to load available slots: ${e.toString()}'),
         ),
       );
     } finally {
@@ -227,15 +239,11 @@ class _AppointmentAvailabilityScreenState
   // Book appointment
   // ---------------------------------------------------------
 
-  Future<void> _bookAppointment(
-    Map<String, dynamic> slot,
-  ) async {
+  Future<void> _bookAppointment(Map<String, dynamic> slot) async {
     if (patientId == null || patientId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Patient information not found. Please log in again.',
-          ),
+          content: Text('Patient information not found. Please log in again.'),
         ),
       );
 
@@ -269,9 +277,7 @@ class _AppointmentAvailabilityScreenState
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Appointment created successfully!',
-            ),
+            content: Text('Appointment created successfully!'),
             backgroundColor: greenDark,
           ),
         );
@@ -284,9 +290,7 @@ class _AppointmentAvailabilityScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Booking failed: ${e.toString()}',
-          ),
+          content: Text('Booking failed: ${e.toString()}'),
           backgroundColor: const Color(0xFFD96B6B),
         ),
       );
@@ -311,17 +315,13 @@ class _AppointmentAvailabilityScreenState
       // -----------------------------------------------------
       // App bar
       // -----------------------------------------------------
-
       appBar: AppBar(
         backgroundColor: white,
         foregroundColor: textDark,
         elevation: 0,
         title: const Text(
           'Find Appointment',
-          style: TextStyle(
-            color: textDark,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: textDark, fontWeight: FontWeight.bold),
         ),
       ),
 
@@ -339,10 +339,7 @@ class _AppointmentAvailabilityScreenState
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [
-                    bluePastel,
-                    greenPastel,
-                  ],
+                  colors: [bluePastel, greenPastel],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -381,10 +378,7 @@ class _AppointmentAvailabilityScreenState
                         SizedBox(height: 5),
                         Text(
                           'Search for real-time appointment availability.',
-                          style: TextStyle(
-                            color: textMid,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: textMid, fontSize: 13),
                         ),
                       ],
                     ),
@@ -398,15 +392,12 @@ class _AppointmentAvailabilityScreenState
             // -------------------------------------------------
             // Search card
             // -------------------------------------------------
-
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: borderColor,
-                ),
+                border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -432,7 +423,6 @@ class _AppointmentAvailabilityScreenState
                   // -------------------------------------------
                   // Specialization
                   // -------------------------------------------
-
                   const Text(
                     'Specialization',
                     style: TextStyle(
@@ -448,17 +438,12 @@ class _AppointmentAvailabilityScreenState
                     decoration: BoxDecoration(
                       color: blueLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: borderColor,
-                      ),
+                      border: Border.all(color: borderColor),
                     ),
                     child: DropdownButtonFormField<String>(
                       initialValue: selectedSpecialization,
                       dropdownColor: white,
-                      style: const TextStyle(
-                        color: textDark,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(color: textDark, fontSize: 14),
                       decoration: const InputDecoration(
                         prefixIcon: Icon(
                           Icons.medical_services_outlined,
@@ -473,10 +458,7 @@ class _AppointmentAvailabilityScreenState
                       ),
                       hint: const Text(
                         'Select specialization',
-                        style: TextStyle(
-                          color: textLight,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: textLight, fontSize: 14),
                       ),
                       items: specializations.map((specialization) {
                         return DropdownMenuItem<String>(
@@ -500,7 +482,6 @@ class _AppointmentAvailabilityScreenState
                   // -------------------------------------------
                   // Date
                   // -------------------------------------------
-
                   const Text(
                     'Appointment Date',
                     style: TextStyle(
@@ -523,9 +504,7 @@ class _AppointmentAvailabilityScreenState
                       decoration: BoxDecoration(
                         color: greenLight,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: borderColor,
-                        ),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Row(
                         children: [
@@ -556,10 +535,7 @@ class _AppointmentAvailabilityScreenState
 
                           const Spacer(),
 
-                          const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: textMid,
-                          ),
+                          const Icon(Icons.keyboard_arrow_down, color: textMid),
                         ],
                       ),
                     ),
@@ -570,16 +546,12 @@ class _AppointmentAvailabilityScreenState
                   // -------------------------------------------
                   // Search button
                   // -------------------------------------------
-
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton.icon(
                       onPressed: isLoading ? null : _searchDoctors,
-                      icon: const Icon(
-                        Icons.search,
-                        size: 21,
-                      ),
+                      icon: const Icon(Icons.search, size: 21),
                       label: const Text(
                         'Search Available Doctors',
                         style: TextStyle(
@@ -608,21 +580,17 @@ class _AppointmentAvailabilityScreenState
             // -------------------------------------------------
             // Loading
             // -------------------------------------------------
-
             if (isLoading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(
-                    color: blueAccent,
-                  ),
+                  child: CircularProgressIndicator(color: blueAccent),
                 ),
               ),
 
             // -------------------------------------------------
             // Doctors
             // -------------------------------------------------
-
             if (!isLoading && availableDoctors.isNotEmpty) ...[
               const Text(
                 'Available Doctors',
@@ -635,31 +603,24 @@ class _AppointmentAvailabilityScreenState
 
               const SizedBox(height: 12),
 
-              ...availableDoctors.map(
-                (doctor) => _doctorCard(
-                  doctor,
-                ),
-              ),
+              ...availableDoctors.map((doctor) => _doctorCard(doctor)),
             ],
 
             // -------------------------------------------------
             // No doctors
             // -------------------------------------------------
-
             if (!isLoading &&
                 availableDoctors.isEmpty &&
                 selectedSpecialization != null)
               _emptyState(
                 icon: Icons.person_search_outlined,
                 title: 'No doctors found',
-                message:
-                    'No doctors are available for the selected date.',
+                message: 'No doctors are available for the selected date.',
               ),
 
             // -------------------------------------------------
             // Available slots
             // -------------------------------------------------
-
             if (selectedDoctor != null &&
                 !isLoading &&
                 availableSlots.isNotEmpty) ...[
@@ -671,9 +632,7 @@ class _AppointmentAvailabilityScreenState
                 decoration: BoxDecoration(
                   color: white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: borderColor,
-                  ),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,10 +668,7 @@ class _AppointmentAvailabilityScreenState
                             SizedBox(height: 3),
                             Text(
                               'Choose a convenient time',
-                              style: TextStyle(
-                                color: textMid,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: textMid, fontSize: 12),
                             ),
                           ],
                         ),
@@ -721,9 +677,7 @@ class _AppointmentAvailabilityScreenState
 
                     const SizedBox(height: 16),
 
-                    ...availableSlots.map(
-                      (slot) => _slotCard(slot),
-                    ),
+                    ...availableSlots.map((slot) => _slotCard(slot)),
                   ],
                 ),
               ),
@@ -732,10 +686,7 @@ class _AppointmentAvailabilityScreenState
             // -------------------------------------------------
             // No slots
             // -------------------------------------------------
-
-            if (selectedDoctor != null &&
-                !isLoading &&
-                availableSlots.isEmpty)
+            if (selectedDoctor != null && !isLoading && availableSlots.isEmpty)
               _emptyState(
                 icon: Icons.event_busy_outlined,
                 title: 'No available slots',
@@ -752,27 +703,19 @@ class _AppointmentAvailabilityScreenState
   // Doctor card
   // ---------------------------------------------------------
 
-  Widget _doctorCard(
-    Map<String, dynamic> doctor,
-  ) {
-    final doctorName =
-        doctor['doctorName']?.toString() ?? 'Doctor';
+  Widget _doctorCard(Map<String, dynamic> doctor) {
+    final doctorName = doctor['doctorName']?.toString() ?? 'Doctor';
 
-    final specialization =
-        doctor['specialization']?.toString() ?? '';
+    final specialization = doctor['specialization']?.toString() ?? '';
 
-    final date =
-        doctor['date']?.toString() ?? '';
+    final date = doctor['date']?.toString() ?? '';
 
-    final startTime =
-        doctor['startTime']?.toString() ?? '';
+    final startTime = doctor['startTime']?.toString() ?? '';
 
-    final endTime =
-        doctor['endTime']?.toString() ?? '';
+    final endTime = doctor['endTime']?.toString() ?? '';
 
     final isSelected =
-        selectedDoctor?['doctorId'].toString() ==
-            doctor['doctorId'].toString();
+        selectedDoctor?['doctorId'].toString() == doctor['doctorId'].toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -780,9 +723,7 @@ class _AppointmentAvailabilityScreenState
         color: white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isSelected
-              ? blueAccent
-              : borderColor,
+          color: isSelected ? blueAccent : borderColor,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
@@ -823,11 +764,9 @@ class _AppointmentAvailabilityScreenState
               // ---------------------------------------------
               // Doctor information
               // ---------------------------------------------
-
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       doctorName,
@@ -881,7 +820,6 @@ class _AppointmentAvailabilityScreenState
               // ---------------------------------------------
               // Arrow
               // ---------------------------------------------
-
               Container(
                 width: 34,
                 height: 34,
@@ -906,32 +844,21 @@ class _AppointmentAvailabilityScreenState
   // Slot card
   // ---------------------------------------------------------
 
-  Widget _slotCard(
-    Map<String, dynamic> slot,
-  ) {
-    final startTime =
-        slot['startTime']?.toString() ?? '';
+  Widget _slotCard(Map<String, dynamic> slot) {
+    final startTime = slot['startTime']?.toString() ?? '';
 
-    final endTime =
-        slot['endTime']?.toString() ?? '';
+    final endTime = slot['endTime']?.toString() ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       child: ElevatedButton(
-        onPressed: isBooking
-            ? null
-            : () => _bookAppointment(slot),
+        onPressed: isBooking ? null : () => _bookAppointment(slot),
         style: ElevatedButton.styleFrom(
           backgroundColor: greenAccent,
           foregroundColor: Colors.white,
-          disabledBackgroundColor:
-              greenPastel,
-          disabledForegroundColor:
-              textLight,
-          minimumSize: const Size(
-            double.infinity,
-            52,
-          ),
+          disabledBackgroundColor: greenPastel,
+          disabledForegroundColor: textLight,
+          minimumSize: const Size(double.infinity, 52),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(13),
@@ -947,16 +874,10 @@ class _AppointmentAvailabilityScreenState
                 ),
               )
             : Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.access_time,
-                    size: 19,
-                  ),
-
+                  const Icon(Icons.access_time, size: 19),
                   const SizedBox(width: 8),
-
                   Text(
                     '${_formatTime(startTime)} - ${_formatTime(endTime)}',
                     style: const TextStyle(
@@ -986,9 +907,7 @@ class _AppointmentAvailabilityScreenState
       decoration: BoxDecoration(
         color: white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
@@ -999,11 +918,7 @@ class _AppointmentAvailabilityScreenState
               color: blueLight,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              icon,
-              color: blueDark,
-              size: 28,
-            ),
+            child: Icon(icon, color: blueDark, size: 28),
           ),
 
           const SizedBox(height: 12),
@@ -1022,10 +937,7 @@ class _AppointmentAvailabilityScreenState
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: textMid,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: textMid, fontSize: 13),
           ),
         ],
       ),
