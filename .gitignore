@@ -17,8 +17,16 @@ bin/
 obj/
 
 # Flutter / Dart
+.dart_tool
 .dart_tool/
+.dart_tool.nosync
+.dart_tool.nosync/
+build
 build/
+build.nosync
+build.nosync/
+*.nosync
+*.nosync/
 .flutter-plugins
 .flutter-plugins-dependencies
 
