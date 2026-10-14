@@ -54,7 +54,17 @@ namespace CareFlowAI.API.Services.Notifications
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError("Notification outbox pass failed: {ErrorType}", ex.GetType().Name);
+                    var isMissingTable = ex is Npgsql.PostgresException { SqlState: "42P01" }
+                        || (ex.InnerException is Npgsql.PostgresException { SqlState: "42P01" });
+
+                    if (isMissingTable)
+                    {
+                        _logger.LogWarning("NotificationEvents table does not exist in the database yet. Run 'dotnet ef database update' to enable outbox processing.");
+                    }
+                    else
+                    {
+                        _logger.LogError("Notification outbox pass failed: {ErrorType}", ex.GetType().Name);
+                    }
                 }
 
                 try { await Task.Delay(PollInterval, stoppingToken); }
