@@ -6,6 +6,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.Models;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Services;
+using CareFlowAI.API.Services.Notifications;
 
 namespace CareFlowAI.API.Controllers
 {
@@ -19,19 +20,22 @@ namespace CareFlowAI.API.Controllers
         private readonly ISafetyAgent _safetyAgent;
         private readonly CloudinaryDotNet.Cloudinary? _cloudinary;
         private readonly CareFlowAI.Orchestrator.Agents.AppointmentActionAgent _appointmentAgent;
+        private readonly CareFlowAI.API.Services.Notifications.INotificationDispatcher? _dispatcher;
 
         public TriageController(
             ApplicationDbContext context,
             PlanningAgentService planningAgent,
             IServiceProvider serviceProvider,
             CareFlowAI.Orchestrator.Agents.AppointmentActionAgent appointmentAgent,
-            ISafetyAgent? safetyAgent = null)
+            ISafetyAgent? safetyAgent = null,
+            CareFlowAI.API.Services.Notifications.INotificationDispatcher? dispatcher = null)
         {
             _context       = context;
             _planningAgent = planningAgent;
             _appointmentAgent = appointmentAgent;
             _safetyAgent   = safetyAgent ?? new PharmacyAiService();
             _cloudinary    = serviceProvider.GetService<CloudinaryDotNet.Cloudinary>();
+            _dispatcher    = dispatcher ?? serviceProvider.GetService<CareFlowAI.API.Services.Notifications.INotificationDispatcher>();
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -406,6 +410,9 @@ namespace CareFlowAI.API.Controllers
                 };
                 _context.TriageReviewHistories.Add(history);
 
+                NotificationEvent? notifEvent = null;
+                AgentWorkflowState? notifState = null;
+
                 if (record.TentativeAppointmentId.HasValue)
                 {
                     var appointmentService = HttpContext.RequestServices.GetRequiredService<AppointmentService>();
@@ -415,14 +422,21 @@ namespace CareFlowAI.API.Controllers
                         var appt = await appointmentService.ConfirmAsync(record.TentativeAppointmentId.Value);
                         if (appt != null)
                         {
-                            // Integrate appointment notification through D's agreed contract if available.
-                            // Currently unsupported, so record it as pending/unsupported.
-                            var notifState = new AgentWorkflowState
+                            if (_dispatcher != null)
+                            {
+                                notifEvent = await _dispatcher.EnqueueAsync(
+                                    NotificationEventTypes.AppointmentConfirmed,
+                                    appt.PatientId,
+                                    NotificationSubjects.Appointment,
+                                    appt.Id);
+                            }
+
+                            notifState = new AgentWorkflowState
                             {
                                 TriageRecordId = record.Id,
                                 AgentName = "NotificationAgent",
-                                AgentStatus = "Unsupported",
-                                ErrorMessage = "Pending dependency: Component D NotificationService does not yet support appointment notifications.",
+                                AgentStatus = notifEvent != null ? "Queued" : "Disabled",
+                                ErrorMessage = notifEvent != null ? null : "Notification delivery is disabled or not configured on the server.",
                                 StartedAt = DateTime.UtcNow,
                                 CompletedAt = DateTime.UtcNow
                             };
@@ -448,16 +462,23 @@ namespace CareFlowAI.API.Controllers
                     else if (dto.Decision == "Rejected" || dto.Decision == "RevisionRequested")
                     {
                         await appointmentService.CancelAsync(record.TentativeAppointmentId.Value);
-                        // Release tentative booking but preserve audit history (don't clear ID? Prompt: "Rejection/revision must release the tentative booking and preserve its audit history.")
-                        // If we preserve it, maybe don't set TentativeAppointmentId to null, or do we?
-                        // "preserve its audit history" could mean keeping the appointment record in the database as 'Cancelled'.
-                        // We can set record.TentativeAppointmentId = null so it's not shown as active, but the appointment record remains.
                         record.TentativeAppointmentId = null;
                     }
                 }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                if (_dispatcher != null && notifEvent != null)
+                {
+                    var dispatched = await _dispatcher.TryDispatchInlineAsync(notifEvent.Id);
+                    if (dispatched != null && notifState != null)
+                    {
+                        notifState.AgentStatus = dispatched.Status;
+                        notifState.ErrorMessage = dispatched.FailureReason;
+                        try { await _context.SaveChangesAsync(); } catch { }
+                    }
+                }
 
                 // Re-fetch appointment if needed or just let MapToDto handle it
                 return Ok(MapToDto(record, agent, _cloudinary));
@@ -467,7 +488,7 @@ namespace CareFlowAI.API.Controllers
                 await transaction.RollbackAsync();
                 return Conflict("Another reviewer changed this case. Refresh before continuing.");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 await transaction.RollbackAsync();
                 throw;

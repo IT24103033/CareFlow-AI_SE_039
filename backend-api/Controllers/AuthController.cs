@@ -124,6 +124,7 @@ namespace CareFlowAI.API.Controllers
             var patient = new PatientProfile
             {
                 FullName = dto.FullName.Trim(),
+                Email = emailLower,
                 DateOfBirth = dto.DateOfBirth,
                 BloodGroup = string.IsNullOrWhiteSpace(dto.BloodGroup) ? "O+" : dto.BloodGroup.Trim(),
                 MedicalHistorySummary = string.IsNullOrWhiteSpace(dto.MedicalHistorySummary)

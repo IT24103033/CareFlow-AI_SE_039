@@ -171,8 +171,18 @@ function CaseDetail({ id, api, onDecision }) {
       
       {record.notificationOutcome && (
         <div className="triage-appointment-notice" style={{ marginTop: '12px' }}>
-          <h4>Actual Execution & Notification</h4>
-          <p>{record.notificationOutcome}</p>
+          <h4>Appointment Notification</h4>
+          <p>
+            {record.notificationOutcome === 'AcceptedByProvider'
+              ? '✅ Email accepted by provider for delivery to patient.'
+              : record.notificationOutcome === 'Delivered'
+              ? '✅ Email confirmed delivered to recipient inbox.'
+              : record.notificationOutcome === 'Queued'
+              ? '⏳ Notification queued for dispatch.'
+              : record.notificationOutcome.startsWith('Pending') || record.notificationOutcome === 'Unsupported'
+              ? `ℹ️ ${record.notificationOutcome}`
+              : `⚠️ ${record.notificationOutcome}`}
+          </p>
         </div>
       )}
 

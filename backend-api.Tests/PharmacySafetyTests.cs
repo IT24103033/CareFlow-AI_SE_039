@@ -14,11 +14,13 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
 using CareFlowAI.API.Services;
+using CareFlowAI.API.Services.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace CareFlowAI.API.Tests;
@@ -34,8 +36,8 @@ namespace CareFlowAI.API.Tests;
 ///   5.  Drug interaction key normalization (both orderings hit the same rule)
 ///   6.  Emergency safety agent CheckEmergencyRules integrates into triage workflow
 ///   7.  Notification failure does NOT record delivery success
-///   8.  Correct recipient selection (actual patient email/phone, not hardcoded)
-///   9.  Provider failure / partial delivery tracking
+///   8.  Correct recipient selection (actual patient email, not hardcoded)
+///   9.  Provider failure / retry tracking
 ///   10. Staff cannot impersonate the issuing doctor
 ///   11. Retry endpoint succeeds after initial failure
 ///   12. Retry endpoint is blocked when notification already succeeded (no duplicate)
@@ -49,16 +51,41 @@ public class PharmacySafetyTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
+    private static INotificationDispatcher CreateTestDispatcher(
+        ApplicationDbContext db,
+        IEmailProvider? emailProvider = null,
+        NotificationOptions? options = null)
+    {
+        var opt = options ?? new NotificationOptions
+        {
+            Email = new EmailOptions
+            {
+                Provider = "Resend",
+                ApiKey = "re_test_key_valid_12345",
+                From = "CareFlow AI <notifications@careflowhospital.org>"
+            }
+        };
+        var optMonitor = new SimpleOptionsMonitor<NotificationOptions>(opt);
+        var resolver = new NotificationRecipientResolver(db);
+        return new NotificationDispatcher(
+            db,
+            emailProvider ?? new AlwaysSuccessEmailProvider(),
+            resolver,
+            optMonitor,
+            NullLogger<NotificationDispatcher>.Instance);
+    }
+
     private static PrescriptionsController MakeController(
         ApplicationDbContext db,
         Guid doctorId,
         bool doctorIsActive = true,
-        INotificationService? notificationService = null)
+        IEmailProvider? emailProvider = null,
+        INotificationDispatcher? dispatcher = null)
     {
         var aiService = new PharmacyAiService();
-        var ns = notificationService ?? new AlwaysSuccessNotificationService();
+        var disp = dispatcher ?? CreateTestDispatcher(db, emailProvider);
 
-        var controller = new PrescriptionsController(db, aiService, ns);
+        var controller = new PrescriptionsController(db, aiService, disp);
 
         var claims = new List<Claim>
         {
@@ -78,7 +105,7 @@ public class PharmacySafetyTests
     private static async Task<(PatientProfile patient, Doctor doctor, TriageRecord triage, Medicine medicine)> Seed(
         ApplicationDbContext db,
         bool doctorActive = true,
-        string? patientEmail = "patient@example.com",
+        string? patientEmail = "patient@careflowhospital.org",
         string? patientPhone = "+94771234567")
     {
         var patient = new PatientProfile
@@ -122,62 +149,61 @@ public class PharmacySafetyTests
 
     // ── Notification stubs ────────────────────────────────────────────────────
 
-    private sealed class AlwaysSuccessNotificationService : INotificationService
+    private sealed class SimpleOptionsMonitor<T> : IOptionsMonitor<T>
     {
-        public string? LastEmail { get; private set; }
-        public string? LastPhone { get; private set; }
+        public SimpleOptionsMonitor(T currentValue) => CurrentValue = currentValue;
+        public T CurrentValue { get; set; }
+        public T Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<T, string?> listener) => null;
+    }
 
-        public Task<bool> SendEmailAsync(string to, string subject, string body)
-        {
-            LastEmail = to;
-            return Task.FromResult(true);
-        }
+    private sealed class AlwaysSuccessEmailProvider : IEmailProvider
+    {
+        public bool IsConfigured => true;
+        public string? LastTo { get; private set; }
+        public int CallCount { get; private set; }
 
-        public Task<bool> SendSmsAsync(string phone, string message)
+        public Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
         {
-            LastPhone = phone;
-            return Task.FromResult(true);
-        }
-
-        public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
-            string name, string? email, string? phone, string summary, string channel = "Both")
-        {
-            LastEmail = email;
-            LastPhone = phone;
-            return Task.FromResult<(bool, string?)>((true, null));
+            CallCount++;
+            LastTo = message.To;
+            return Task.FromResult(new EmailSendResult(EmailSendOutcome.Accepted, $"msg_{Guid.NewGuid():N}"));
         }
     }
 
-    private sealed class AlwaysFailNotificationService : INotificationService
+    private sealed class AlwaysFailEmailProvider : IEmailProvider
     {
-        public Task<bool> SendEmailAsync(string to, string subject, string body) => Task.FromResult(false);
-        public Task<bool> SendSmsAsync(string phone, string message) => Task.FromResult(false);
-        public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
-            string name, string? email, string? phone, string summary, string channel = "Both")
-            => Task.FromResult<(bool, string?)>((false, "Provider returned an error."));
+        private readonly EmailSendOutcome _outcome;
+        private readonly string _reason;
+
+        public AlwaysFailEmailProvider(
+            EmailSendOutcome outcome = EmailSendOutcome.TemporaryFailure,
+            string reason = "Provider returned an error.")
+        {
+            _outcome = outcome;
+            _reason = reason;
+        }
+
+        public bool IsConfigured => true;
+        public int CallCount { get; private set; }
+
+        public Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(new EmailSendResult(_outcome, FailureReason: _reason));
+        }
     }
 
-    /// <summary>
-    /// Captures the contact arguments supplied to DispatchPrescriptionNotificationAsync.
-    /// Delegates actual success/failure result to an inner service.
-    /// </summary>
-    private sealed class CapturingNotificationService : INotificationService
+    private sealed class CapturingEmailProvider : IEmailProvider
     {
-        private readonly INotificationService _inner;
-        public string? CapturedEmail { get; private set; }
-        public string? CapturedPhone { get; private set; }
+        public bool IsConfigured => true;
+        public EmailMessage? CapturedMessage { get; private set; }
+        public string? CapturedEmail => CapturedMessage?.To;
 
-        public CapturingNotificationService(INotificationService inner) => _inner = inner;
-
-        public Task<bool> SendEmailAsync(string to, string subject, string body) => _inner.SendEmailAsync(to, subject, body);
-        public Task<bool> SendSmsAsync(string phone, string message) => _inner.SendSmsAsync(phone, message);
-
-        public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
-            string name, string? email, string? phone, string summary, string channel = "Both")
+        public Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
         {
-            CapturedEmail = email;
-            CapturedPhone = phone;
-            return _inner.DispatchPrescriptionNotificationAsync(name, email, phone, summary, channel);
+            CapturedMessage = message;
+            return Task.FromResult(new EmailSendResult(EmailSendOutcome.Accepted, $"msg_{Guid.NewGuid():N}"));
         }
     }
 
@@ -326,7 +352,7 @@ public class PharmacySafetyTests
         await controller.Approve(prescriptionId, new ApprovePrescriptionDto { Decision = "Approved" });
 
         // Create a separate Staff controller for dispensing
-        var staffController = new PrescriptionsController(db, new PharmacyAiService(), new AlwaysSuccessNotificationService());
+        var staffController = new PrescriptionsController(db, new PharmacyAiService(), CreateTestDispatcher(db, new AlwaysSuccessEmailProvider()));
         staffController.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, "Staff") }, "Test"))
@@ -500,8 +526,8 @@ public class PharmacySafetyTests
     {
         using var db = CreateDb();
         var (patient, doctor, triage, medicine) = await Seed(db);
-        var failingNotifier = new AlwaysFailNotificationService();
-        var controller = MakeController(db, doctor.Id, notificationService: failingNotifier);
+        var failingNotifier = new AlwaysFailEmailProvider();
+        var controller = MakeController(db, doctor.Id, emailProvider: failingNotifier);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -522,7 +548,7 @@ public class PharmacySafetyTests
     {
         using var db = CreateDb();
         var (patient, doctor, triage, medicine) = await Seed(db);
-        var controller = MakeController(db, doctor.Id); // uses AlwaysSuccessNotificationService
+        var controller = MakeController(db, doctor.Id); // uses AlwaysSuccessEmailProvider
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -537,7 +563,7 @@ public class PharmacySafetyTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TEST 8: Correct recipient selection – actual patient email/phone, not hardcoded
+    // TEST 8: Correct recipient selection – actual patient email, not hardcoded
     // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -549,8 +575,8 @@ public class PharmacySafetyTests
             patientEmail: "sarah.jenkins@patientmail.com",
             patientPhone: "+94771234567");
 
-        var capturingNotifier = new CapturingNotificationService(new AlwaysSuccessNotificationService());
-        var controller = MakeController(db, doctor.Id, notificationService: capturingNotifier);
+        var capturingNotifier = new CapturingEmailProvider();
+        var controller = MakeController(db, doctor.Id, emailProvider: capturingNotifier);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -559,9 +585,7 @@ public class PharmacySafetyTests
 
         // Notification must be sent to the patient's own contact, NOT to any hardcoded address
         Assert.Equal("sarah.jenkins@patientmail.com", capturingNotifier.CapturedEmail);
-        Assert.Equal("+94771234567", capturingNotifier.CapturedPhone);
         Assert.NotEqual("patient@careflow.hospital.org", capturingNotifier.CapturedEmail);
-        Assert.NotEqual("+15550198372", capturingNotifier.CapturedPhone);
     }
 
     [Fact]
@@ -571,7 +595,7 @@ public class PharmacySafetyTests
         // Patient has no email or phone on record
         var (patient, doctor, triage, medicine) = await Seed(db, patientEmail: null, patientPhone: null);
 
-        var controller = MakeController(db, doctor.Id, notificationService: new AlwaysFailNotificationService());
+        var controller = MakeController(db, doctor.Id);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -597,8 +621,8 @@ public class PharmacySafetyTests
         var (patient, doctor, triage, medicine) = await Seed(db);
 
         // First attempt fails
-        var failingNotifier = new AlwaysFailNotificationService();
-        var controller = MakeController(db, doctor.Id, notificationService: failingNotifier);
+        var failingNotifier = new AlwaysFailEmailProvider();
+        var controller = MakeController(db, doctor.Id, emailProvider: failingNotifier);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -610,7 +634,7 @@ public class PharmacySafetyTests
         Assert.False(prescription.NotificationSent);
 
         // Retry via RetryNotification endpoint – still fails
-        var staffController = new PrescriptionsController(db, new PharmacyAiService(), failingNotifier);
+        var staffController = new PrescriptionsController(db, new PharmacyAiService(), CreateTestDispatcher(db, failingNotifier));
         staffController.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -660,6 +684,7 @@ public class PharmacySafetyTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // TEST 11: Retry succeeds after initial notification failure
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -670,8 +695,8 @@ public class PharmacySafetyTests
         var (patient, doctor, triage, medicine) = await Seed(db);
 
         // Approve with failing notifier
-        var failingNotifier = new AlwaysFailNotificationService();
-        var controller = MakeController(db, doctor.Id, notificationService: failingNotifier);
+        var failingNotifier = new AlwaysFailEmailProvider();
+        var controller = MakeController(db, doctor.Id, emailProvider: failingNotifier);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -682,7 +707,7 @@ public class PharmacySafetyTests
         Assert.False(prescription!.NotificationSent);
 
         // Retry with a working notifier
-        var successController = new PrescriptionsController(db, new PharmacyAiService(), new AlwaysSuccessNotificationService());
+        var successController = new PrescriptionsController(db, new PharmacyAiService(), CreateTestDispatcher(db, new AlwaysSuccessEmailProvider()));
         successController.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -713,7 +738,7 @@ public class PharmacySafetyTests
         var (patient, doctor, triage, medicine) = await Seed(db);
 
         // Approve with a working notifier → succeeds first time
-        var controller = MakeController(db, doctor.Id); // AlwaysSuccessNotificationService
+        var controller = MakeController(db, doctor.Id); // AlwaysSuccessEmailProvider
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -724,7 +749,7 @@ public class PharmacySafetyTests
         Assert.True(prescription!.NotificationSent);
 
         // Attempt retry — must be blocked (Conflict) to avoid duplicate notification
-        var staffController = new PrescriptionsController(db, new PharmacyAiService(), new AlwaysSuccessNotificationService());
+        var staffController = new PrescriptionsController(db, new PharmacyAiService(), CreateTestDispatcher(db, new AlwaysSuccessEmailProvider()));
         staffController.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -756,7 +781,7 @@ public class PharmacySafetyTests
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
 
         // Staff member (no doctor_id claim) attempts to approve
-        var staffController = new PrescriptionsController(db, new PharmacyAiService(), new AlwaysSuccessNotificationService());
+        var staffController = new PrescriptionsController(db, new PharmacyAiService(), CreateTestDispatcher(db, new AlwaysSuccessEmailProvider()));
         staffController.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -799,27 +824,16 @@ public class PharmacySafetyTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TEST 15: Partial delivery tracking when one channel fails
+    // TEST 15: Transient provider failure tracking
     // ─────────────────────────────────────────────────────────────────────────
 
-    private sealed class PartialFailNotificationService : INotificationService
-    {
-        public Task<bool> SendEmailAsync(string toEmail, string subject, string messageBody) => Task.FromResult(true);
-        public Task<bool> SendSmsAsync(string phoneNumber, string message) => Task.FromResult(false);
-        public Task<(bool Success, string? FailureReason)> DispatchPrescriptionNotificationAsync(
-            string patientName, string? patientEmail, string? patientPhone, string prescriptionSummary, string channel = "Both")
-        {
-            return Task.FromResult((false, (string?)"Notification delivery failed for channel(s): SMS (Provider delivery failed)."));
-        }
-    }
-
     [Fact]
-    public async Task Approve_PartialDeliveryFailure_IsTrackedAccurately()
+    public async Task Approve_TransientFailure_IsTrackedAccurately()
     {
         using var db = CreateDb();
         var (patient, doctor, triage, medicine) = await Seed(db);
-        var partialNotifier = new PartialFailNotificationService();
-        var controller = MakeController(db, doctor.Id, notificationService: partialNotifier);
+        var transientFailNotifier = new AlwaysFailEmailProvider(EmailSendOutcome.RateLimited, "Rate limited by provider.");
+        var controller = MakeController(db, doctor.Id, emailProvider: transientFailNotifier);
 
         var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
         var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
@@ -829,37 +843,40 @@ public class PharmacySafetyTests
 
         var prescription = await db.Prescriptions.FindAsync(prescriptionId);
         Assert.Equal("Issued", prescription!.Status);
-        // Partial failure must NOT be recorded as overall successful delivery
         Assert.False(prescription.NotificationSent);
-        Assert.Contains("SMS", prescription.NotificationFailureReason);
+        Assert.Contains("Rate limited", prescription.NotificationFailureReason);
         Assert.Equal(1, prescription.NotificationRetryCount);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TEST 16: Live notification delivery to controlled test recipient
+    // TEST 16: Unconfigured provider produces honest unavailable result
     // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task LiveNotificationDelivery_ToControlledTestRecipient_SucceedsOverNetwork()
+    public async Task UnconfiguredProvider_ProducesHonestFailureResult()
     {
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        using var db = CreateDb();
+        var (patient, doctor, triage, medicine) = await Seed(db);
+        var unconfiguredOptions = new NotificationOptions
         {
-            ["Notifications:EmailEndpoint"] = "https://httpbin.org/post",
-            ["Notifications:SmsEndpoint"]   = "https://httpbin.org/post",
-            ["Notifications:ApiKey"]        = "test-key-live-verify-12345"
-        }).Build();
+            Email = new EmailOptions { Provider = "Resend", ApiKey = null, From = null }
+        };
+        var disp = CreateTestDispatcher(db, new ResendEmailProvider(
+            new HttpClient(),
+            new SimpleOptionsMonitor<NotificationOptions>(unconfiguredOptions),
+            NullLogger<ResendEmailProvider>.Instance), unconfiguredOptions);
+        var controller = MakeController(db, doctor.Id, dispatcher: disp);
 
-        using var httpClient = new HttpClient();
-        var service = new NotificationService(httpClient, config, NullLogger<NotificationService>.Instance);
+        var createResult = await controller.Create(MakeCreateDto(patient, triage, medicine));
+        var prescriptionId = (Guid)((CreatedAtActionResult)createResult).Value!.GetType().GetProperty("Id")!.GetValue(((CreatedAtActionResult)createResult).Value!)!;
 
-        var (success, reason) = await service.DispatchPrescriptionNotificationAsync(
-            "Dr. Controlled Test Patient",
-            "controlled.patient@careflow-test.org",
-            "+15550199999",
-            "Amoxicillin 500mg x21 (1 capsule tid)",
-            "Both");
+        var approveResult = await controller.Approve(prescriptionId, new ApprovePrescriptionDto { Decision = "Approved" });
+        Assert.IsType<OkObjectResult>(approveResult);
 
-        Assert.True(success, $"Live notification failed: {reason}");
-        Assert.Null(reason);
+        var prescription = await db.Prescriptions.FindAsync(prescriptionId);
+        Assert.Equal("Issued", prescription!.Status);
+        Assert.False(prescription.NotificationSent);
+        Assert.NotNull(prescription.NotificationFailureReason);
+        Assert.Contains("not configured", prescription.NotificationFailureReason, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -5,6 +5,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
 using CareFlowAI.API.Services;
+using CareFlowAI.API.Services.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,18 +20,18 @@ namespace CareFlowAI.API.Controllers
     [Route("api/[controller]")]
     public class PrescriptionsController : ControllerBase
     {
-        private readonly ApplicationDbContext  _context;
-        private readonly PharmacyAiService     _aiService;
-        private readonly INotificationService  _notificationService;
+        private readonly ApplicationDbContext    _context;
+        private readonly PharmacyAiService       _aiService;
+        private readonly INotificationDispatcher _notifications;
 
         public PrescriptionsController(
             ApplicationDbContext context,
             PharmacyAiService aiService,
-            INotificationService notificationService)
+            INotificationDispatcher notifications)
         {
-            _context             = context;
-            _aiService          = aiService;
-            _notificationService = notificationService;
+            _context       = context;
+            _aiService     = aiService;
+            _notifications = notifications;
         }
 
         // ── GET /api/prescriptions ───────────────────────────────────────────
@@ -104,6 +105,14 @@ namespace CareFlowAI.API.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Notification state comes from the outbox (the source of truth), not from the legacy columns.
+            var pageIds = items.Select(p => p.Id).ToList();
+            var events = (await _context.NotificationEvents.AsNoTracking()
+                    .Where(e => e.EventType == NotificationEventTypes.PrescriptionIssued && pageIds.Contains(e.SubjectId))
+                    .ToListAsync())
+                .ToDictionary(e => e.SubjectId);
+            var isPatient = User?.IsInRole("Patient") == true;
+
             return Ok(new
             {
                 TotalCount = total,
@@ -126,6 +135,13 @@ namespace CareFlowAI.API.Controllers
                     p.NotifiedAt,
                     p.NotificationFailureReason,
                     p.NotificationRetryCount,
+                    Notification = isPatient
+                        ? null
+                        : p.Status is "Issued" or "Dispensed"
+                            ? NotificationStatusDto.From(
+                                events.GetValueOrDefault(p.Id),
+                                legacyRetryableWithoutEvent: p.Status == "Issued")
+                            : NotificationStatusDto.NotApplicable("No email: prescription not issued"),
                     p.CreatedAt,
                     p.UpdatedAt,
                     Items = p.Items.Select(i => new
@@ -323,6 +339,8 @@ namespace CareFlowAI.API.Controllers
             if (prescription.Status != "Draft")
                 return BadRequest(new { message = $"Prescription is already '{prescription.Status}'. Only Draft prescriptions can be approved/rejected." });
 
+            NotificationEvent? notificationEvent = null;
+
             if (dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
             {
                 // Enforce safety results: blocked prescriptions cannot be approved
@@ -335,34 +353,13 @@ namespace CareFlowAI.API.Controllers
                 prescription.IssuedByDoctorId = doctorId;
                 prescription.Notes            = dto.DoctorNotes ?? prescription.Notes;
 
-                // ── Dispatch notification to the ACTUAL patient ───────────────
-                var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine?.Name ?? "Medicine"} x{i.Quantity} ({i.Dosage})"));
-
-                prescription.NotificationRetryCount += 1;
-
-                var (notificationSuccess, failureReason) = await _notificationService.DispatchPrescriptionNotificationAsync(
-                    prescription.Patient?.FullName ?? "Patient",
-                    prescription.Patient?.Email,
-                    prescription.Patient?.Phone,
-                    medSummary,
-                    "Both"
-                );
-
-                // Record delivery outcome accurately
-                if (notificationSuccess)
-                {
-                    prescription.NotificationSent         = true;
-                    prescription.NotificationChannel      = "Email & SMS";
-                    prescription.NotifiedAt               = DateTime.UtcNow;
-                    prescription.NotificationFailureReason = null;
-                }
-                else
-                {
-                    prescription.NotificationSent         = false;
-                    prescription.NotificationChannel      = null;
-                    prescription.NotifiedAt               = null;
-                    prescription.NotificationFailureReason = failureReason ?? "Unknown provider error.";
-                }
+                // Stage the notification in the outbox so it is committed atomically with the issuance below.
+                // Nothing is sent until the prescription is safely persisted.
+                notificationEvent = await _notifications.EnqueueAsync(
+                    NotificationEventTypes.PrescriptionIssued,
+                    prescription.PatientId,
+                    NotificationSubjects.Prescription,
+                    prescription.Id);
             }
             else if (dto.Decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
             {
@@ -376,7 +373,16 @@ namespace CareFlowAI.API.Controllers
             }
 
             prescription.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();   // prescription + outbox row commit together
+
+            // The business action is now durable. Try to send (bounded, never throws): a notification problem
+            // cannot undo or fail the issuance, and the background worker retries transient failures.
+            NotificationStatusDto? notification = null;
+            if (notificationEvent != null)
+            {
+                var after = await _notifications.TryDispatchInlineAsync(notificationEvent.Id);
+                notification = NotificationStatusDto.From(after ?? notificationEvent);
+            }
 
             return Ok(new
             {
@@ -386,29 +392,24 @@ namespace CareFlowAI.API.Controllers
                 prescription.NotificationChannel,
                 prescription.NotificationFailureReason,
                 prescription.NotificationRetryCount,
-                message = dto.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase)
-                    ? (prescription.NotificationSent
-                        ? "Prescription issued. Patient notified via Third-Party Email and SMS."
-                        : $"Prescription issued. Notification delivery to patient failed: {prescription.NotificationFailureReason}")
+                Notification = notification,
+                message = notification != null
+                    ? "Prescription issued. " + NotificationAccess.Describe(notification)
                     : "Prescription rejected and cancelled."
             });
         }
 
         // ── PATCH /api/prescriptions/{id}/notify-retry ───────────────────────
         /// <summary>
-        /// Retries dispatching the prescription-issued notification to the patient.
-        /// Guard: only works on Issued prescriptions where the previous notification failed.
-        /// Prevents duplicate notification if already delivered successfully.
+        /// Retries the prescription-issued email. Only for Issued prescriptions. A Doctor may retry only prescriptions
+        /// they issued; Staff/Admin may retry any. An email already accepted by the provider (or delivered) is never
+        /// re-sent, and concurrent retries cannot both send.
         /// </summary>
         [Authorize(Roles = "Doctor,Staff,Admin")]
         [HttpPatch("{id:guid}/notify-retry")]
         public async Task<IActionResult> RetryNotification(Guid id)
         {
-            var prescription = await _context.Prescriptions
-                .Include(p => p.Patient)
-                .Include(p => p.Items)
-                    .ThenInclude(i => i.Medicine)
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var prescription = await _context.Prescriptions.FirstOrDefaultAsync(p => p.Id == id);
 
             if (prescription is null)
                 return NotFound(new { message = "Prescription not found." });
@@ -416,40 +417,26 @@ namespace CareFlowAI.API.Controllers
             if (prescription.Status != "Issued")
                 return BadRequest(new { message = $"Notification retry is only available for Issued prescriptions. Current status: '{prescription.Status}'." });
 
-            if (prescription.NotificationSent)
-                return Conflict(new { message = "Notification has already been successfully delivered. Retry is not needed." });
+            // Ownership: doctors may only retry notifications for prescriptions they issued.
+            if (User?.IsInRole("Doctor") == true
+                && !(Guid.TryParse(User.FindFirst("doctor_id")?.Value, out var doctorId)
+                     && prescription.IssuedByDoctorId == doctorId))
+                return StatusCode(403, new { message = "You can only retry notifications for prescriptions you issued." });
 
-            // Perform retry
-            var medSummary = string.Join(", ", prescription.Items.Select(i => $"{i.Medicine?.Name ?? "Medicine"} x{i.Quantity} ({i.Dosage})"));
-
-            prescription.NotificationRetryCount += 1;
-
-            var (notificationSuccess, failureReason) = await _notificationService.DispatchPrescriptionNotificationAsync(
-                prescription.Patient?.FullName ?? "Patient",
-                prescription.Patient?.Email,
-                prescription.Patient?.Phone,
-                medSummary,
-                "Both"
-            );
-
-            if (notificationSuccess)
-            {
-                prescription.NotificationSent         = true;
-                prescription.NotificationChannel      = "Email & SMS";
-                prescription.NotifiedAt               = DateTime.UtcNow;
-                prescription.NotificationFailureReason = null;
-            }
-            else
-            {
-                prescription.NotificationSent         = false;
-                prescription.NotificationChannel      = null;
-                prescription.NotifiedAt               = null;
-                prescription.NotificationFailureReason = failureReason ?? "Unknown provider error.";
-            }
-
-            prescription.UpdatedAt = DateTime.UtcNow;
+            // Prescriptions issued before the outbox existed have no row yet: create it, then send.
+            var ev = await _notifications.EnqueueAsync(
+                NotificationEventTypes.PrescriptionIssued,
+                prescription.PatientId,
+                NotificationSubjects.Prescription,
+                prescription.Id);
             await _context.SaveChangesAsync();
 
+            var result = await NotificationAccess.RetryAsync(this, _notifications, ev);
+            if (result is not OkObjectResult) return result;
+
+            await _context.Entry(prescription).ReloadAsync();
+            var latest = await _context.NotificationEvents.AsNoTracking().FirstAsync(e => e.Id == ev.Id);
+            var status = NotificationStatusDto.From(latest);
             return Ok(new
             {
                 prescription.Id,
@@ -457,9 +444,8 @@ namespace CareFlowAI.API.Controllers
                 prescription.NotificationSent,
                 prescription.NotificationFailureReason,
                 prescription.NotificationRetryCount,
-                message = notificationSuccess
-                    ? "Notification retry succeeded. Patient has been notified."
-                    : $"Notification retry failed: {prescription.NotificationFailureReason}"
+                Notification = status,
+                message = NotificationAccess.Describe(status)
             });
         }
 
