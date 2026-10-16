@@ -30,6 +30,9 @@ namespace CareFlowAI.API.Data
         // ── Users for Web Admin Auth ─────────────────────────────────────────
         public DbSet<User> Users { get; set; }
 
+        // ── Notifications outbox (email) ─────────────────────────────────────
+        public DbSet<NotificationEvent> NotificationEvents { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -230,6 +233,30 @@ namespace CareFlowAI.API.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // ── NotificationEvent (outbox) ────────────────────────────────────
+            modelBuilder.Entity<NotificationEvent>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.EventType).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.Channel).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.SubjectType).HasMaxLength(30).IsRequired();
+                entity.Property(e => e.Status).HasMaxLength(30).IsRequired();
+                entity.Property(e => e.RecipientMasked).HasMaxLength(320);
+                entity.Property(e => e.ProviderMessageId).HasMaxLength(100);
+                entity.Property(e => e.LastProviderEventId).HasMaxLength(100);
+                entity.Property(e => e.FailureCode).HasMaxLength(40);
+                entity.Property(e => e.FailureReason).HasMaxLength(300);
+
+                // Optimistic concurrency: only one dispatcher can claim an event.
+                entity.Property(e => e.ConcurrencyToken).IsConcurrencyToken();
+
+                // One notification per event type + subject + channel: duplicates are impossible.
+                entity.HasIndex(e => new { e.EventType, e.SubjectId, e.Channel }).IsUnique();
+                entity.HasIndex(e => e.ProviderMessageId);
+                entity.HasIndex(e => new { e.Status, e.NextAttemptAt });
+            });
+
             // Seed Doctors
             var defaultDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222220");
             var neuroDoctorId = Guid.Parse("22222222-2222-2222-2222-222222222221");
@@ -246,7 +273,6 @@ namespace CareFlowAI.API.Data
             // Seed Availabilities dynamically for the next 7 days for these doctors
             var availabilities = new List<DoctorAvailability>();
             var startDate = DateOnly.FromDateTime(DateTime.UtcNow);
-            int availId = 1;
             foreach (var docId in new[] { defaultDoctorId, neuroDoctorId, cardioDoctorId, pulmonDoctorId })
             {
                 for (int i = 1; i <= 7; i++)

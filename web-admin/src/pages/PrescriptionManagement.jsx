@@ -145,12 +145,30 @@ const PrescriptionManagement = () => {
           doctorNotes: approveNotes
         })
       });
-      if (!res.ok) { const d = await res.json(); alert(d.message); return; }
+      const d = await res.json();
+      if (!res.ok) { alert(d.message); return; }
+      if (d.message) alert(d.message);
       setApproveTarget(null);
       setApproveNotes('');
       setApproveDoctorId('');
       fetchPrescriptions();
     } catch (e) { alert('Error: ' + e.message); }
+  };
+
+  // ── Retry Notification ────────────────────────────────────────────────────────
+  const handleRetryNotification = async (id) => {
+    try {
+      const res = await apiFetch(`/api/prescriptions/${id}/notify-retry`, { method: 'PATCH' });
+      const d = await res.json();
+      if (!res.ok) {
+        alert(d.message || 'Retry failed');
+        return;
+      }
+      alert(d.message || 'Notification retry initiated.');
+      fetchPrescriptions();
+    } catch (e) {
+      alert('Error retrying notification: ' + e.message);
+    }
   };
 
   // ── Dispense ─────────────────────────────────────────────────────────────────
@@ -324,12 +342,43 @@ const PrescriptionManagement = () => {
                             ))}
                           </tbody>
                         </table>
-                        {px.notes && <p style={{ margin: '12px 0 0', color: '#555' }}><strong>Notes:</strong> {px.notes}</p>}
-                        {px.notificationSent && (
+                        {px.notification ? (
+                          <div style={{ margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                            {px.notification.isTerminalSuccess ? (
+                              <span style={{ color: '#52c41a' }}>
+                                ✅ {px.notification.statusLabel} {px.notification.recipientMasked ? `(${px.notification.recipientMasked})` : ''}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#ff4d4f' }}>
+                                ⚠️ Notification: {px.notification.statusLabel} {px.notification.failureReason ? `— ${px.notification.failureReason}` : ''}
+                              </span>
+                            )}
+                            {px.notification.canRetry && (user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
+                              <button
+                                onClick={() => handleRetryNotification(px.id)}
+                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #1890ff', background: '#e6f7ff', color: '#1890ff', cursor: 'pointer', fontSize: 11 }}>
+                                ↻ Retry Email
+                              </button>
+                            )}
+                          </div>
+                        ) : px.notificationSent ? (
                           <p style={{ margin: '8px 0 0', color: '#52c41a', fontSize: 12 }}>
-                            ✅ Patient notified via {px.notificationChannel} on {new Date(px.notifiedAt).toLocaleString()}
+                            ✅ Patient notified via {px.notificationChannel || 'Email'} on {new Date(px.notifiedAt).toLocaleString()}
                           </p>
-                        )}
+                        ) : px.status === 'Issued' && px.notificationFailureReason ? (
+                          <div style={{ margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                            <span style={{ color: '#ff4d4f' }}>
+                              ⚠️ Notification not delivered: {px.notificationFailureReason}
+                            </span>
+                            {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
+                              <button
+                                onClick={() => handleRetryNotification(px.id)}
+                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid #1890ff', background: '#e6f7ff', color: '#1890ff', cursor: 'pointer', fontSize: 11 }}>
+                                ↻ Retry Email
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

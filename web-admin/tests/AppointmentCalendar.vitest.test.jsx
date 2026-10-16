@@ -1,0 +1,21 @@
+import React from 'react';
+import { it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import AppointmentCalendar from '../src/pages/AppointmentCalendar';
+import { apiFetch } from '../src/services/api';
+vi.mock('../src/services/api', () => ({ apiFetch: vi.fn() }));
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+it('Clear resets both visible filters and the request query', async () => {
+  apiFetch.mockImplementation(async () => ({ ok: true, json: async () => [] }));
+  render(<AppointmentCalendar />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Search' })).toBeEnabled());
+  fireEvent.change(screen.getByLabelText('Specialization'), { target: { value: 'Cardiologist' } });
+  fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-20' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+  await waitFor(() => expect(apiFetch).toHaveBeenLastCalledWith('/api/DoctorAvailability/search?specialization=Cardiologist&date=2026-11-20'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Clear' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  await waitFor(() => expect(apiFetch).toHaveBeenLastCalledWith('/api/DoctorAvailability/search'));
+  expect(screen.getByLabelText('Date')).toHaveValue('');
+  expect(screen.getByLabelText('Specialization')).toHaveValue('');
+});

@@ -31,7 +31,7 @@ const staffLinks = [
   { path: '/staff/pharmacy', label: 'Pharmacy & Inventory', icon: '💊' },
   { path: '/staff/prescriptions', label: 'Prescriptions', icon: '📋' },
   { path: '/staff/history-search', label: 'History Search', icon: '🔍' },
-  { path: '/staff/appointments', label: 'Appointments', icon: '📅' }
+  { path: '/staff/appointments', label: 'Appointments', icon: '📅' },
 ];
 
 const adminLinks = [
@@ -44,6 +44,7 @@ const doctorLinks = [
   { path: '/doctor/dashboard', label: 'Dashboard', icon: '👥' },
   { path: '/doctor/triage', label: 'Triage Review', icon: '🩺' },
   { path: '/doctor/prescriptions', label: 'Prescriptions', icon: '📋' },
+  { path: '/doctor/appointments', label: 'Appointments', icon: '📅' },
 ];
 
 function App() {
@@ -81,6 +82,9 @@ function App() {
             <Route path="dashboard" element={<DoctorDashboard />} />
             <Route path="triage" element={<TriageReview />} />
             <Route path="prescriptions" element={<PrescriptionManagement />} />
+
+            {/* Component C: Appointments & Resource Scheduling */}
+            <Route path="appointments" element={<AppointmentCalendar />} />
           </Route>
 
           {/* Staff Routes */}
@@ -122,11 +126,7 @@ function App() {
               element={<PatientHistorySearch />}
             />
 
-            {/* Component C: Appointments & Resource Scheduling */}
-            <Route
-              path="appointments"
-              element={<AppointmentCalendar />}
-            />
+            <Route path="appointments" element={<AppointmentCalendar />} />
 
             <Route
               path="*"

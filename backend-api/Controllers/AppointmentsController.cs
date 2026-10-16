@@ -3,6 +3,7 @@ using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
 using CareFlowAI.API.Services;
+using CareFlowAI.API.Services.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,13 +17,16 @@ namespace CareFlowAI.API.Controllers
     {
         private readonly AppointmentService _service;
         private readonly ApplicationDbContext _context;
+        private readonly INotificationDispatcher? _dispatcher;
 
         public AppointmentsController(
             AppointmentService service,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            INotificationDispatcher? dispatcher = null)
         {
             _service = service;
             _context = context;
+            _dispatcher = dispatcher;
         }
 
         // ============================================================
@@ -393,6 +397,17 @@ namespace CareFlowAI.API.Controllers
                 if (confirmed == null)
                 {
                     return NotFound("Appointment not found.");
+                }
+
+                if (_dispatcher != null)
+                {
+                    var notifEvent = await _dispatcher.EnqueueAsync(
+                        NotificationEventTypes.AppointmentConfirmed,
+                        confirmed.PatientId,
+                        NotificationSubjects.Appointment,
+                        confirmed.Id);
+                    await _context.SaveChangesAsync();
+                    await _dispatcher.TryDispatchInlineAsync(notifEvent.Id);
                 }
 
                 return Ok(confirmed);

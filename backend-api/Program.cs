@@ -2,6 +2,7 @@ using System.Text;
 using CloudinaryDotNet;
 using CareFlowAI.API.Data;
 using CareFlowAI.API.Services;
+using CareFlowAI.API.Services.Notifications;
 using CareFlowAI.Orchestrator;
 using CareFlowAI.Orchestrator.Tools;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -229,6 +230,15 @@ builder.Services.AddScoped<
 // Component D: Third-Party Notifications & Pharmacy AI
 // ============================================================
 
+builder.Services.Configure<NotificationOptions>(
+    builder.Configuration.GetSection(NotificationOptions.Section));
+
+builder.Services.AddHttpClient<IEmailProvider, ResendEmailProvider>();
+builder.Services.AddScoped<NotificationRecipientResolver>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
+builder.Services.AddHostedService<NotificationOutboxWorker>();
+
+// Legacy NotificationService retained for backward compatibility
 builder.Services.AddHttpClient<
     INotificationService,
     NotificationService>();

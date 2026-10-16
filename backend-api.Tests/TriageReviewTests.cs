@@ -57,6 +57,27 @@ public class TriageReviewTests
         return (record, doctor);
     }
 
+    [Fact]
+    public async Task Dashboard_returns_aggregate_counts_and_zero_filled_days_without_patient_data()
+    {
+        using var db = Context();
+        var (record, doctor) = await Seed(db);
+        record.CreatedAt = DateTime.UtcNow.Date.AddDays(-1);
+        record.SeverityLevel = "High";
+        await db.SaveChangesAsync();
+        var result = Assert.IsType<OkObjectResult>(await Controller(db, doctor.Id).Dashboard(default));
+        var json = JsonSerializer.Serialize(result.Value);
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        Assert.Equal(1, root.GetProperty("groups")[0].GetProperty("count").GetInt32());
+        Assert.Equal(7, root.GetProperty("trend").GetArrayLength());
+        Assert.Equal(1, root.GetProperty("trend").EnumerateArray().Sum(d => d.GetProperty("count").GetInt32()));
+        Assert.DoesNotContain(record.Symptoms, json);
+        Assert.DoesNotContain(record.PatientId.ToString(), json);
+        Assert.IsType<UnauthorizedObjectResult>(await Controller(db, authenticated: false).Dashboard(default));
+        Assert.Equal(403, Assert.IsType<ObjectResult>(await Controller(db, role: "Patient").Dashboard(default)).StatusCode);
+    }
+
     [Theory]
     [InlineData(null)] [InlineData("{}")] [InlineData("not json")]
     [InlineData("{\"UrgencyLevel\":\"Unknown\",\"SuggestedSpecialist\":\"X\",\"RecommendedAction\":\"Y\",\"Rationale\":\"Z\"}")]

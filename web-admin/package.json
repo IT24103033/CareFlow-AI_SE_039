@@ -3,15 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
- "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "lint": "eslint .",
-  "preview": "vite preview",
-  "test": "vitest run",
-  "test:watch": "vitest",
-  "test:node": "node --test tests/*.test.js"
-},
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "npm run test:node && npm run test:ui",
+    "test:watch": "vitest",
+    "test:node": "node --test tests/*.test.js",
+    "test:ui": "vitest run"
+  },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -33,5 +34,8 @@
     "jsdom": "^30.1.2",
     "vite": "^8.2.0",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=24.15.0 <25"
   }
 }
