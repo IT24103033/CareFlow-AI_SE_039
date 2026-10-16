@@ -59,9 +59,9 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
         ClinicalPlan? plan = null;
         string? failure = null;
         var maxAttempts = Math.Clamp(configuration.GetValue("Planning:MaxAttempts", 2), 1, 3);
-        var attemptTimeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:AttemptTimeoutSeconds", 10), 1, 30));
+        var attemptTimeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:AttemptTimeoutSeconds", 30), 1, 30));
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        budget.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:WorkflowTimeoutSeconds", 30), 1, 90)));
+        budget.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:WorkflowTimeoutSeconds", 90), 1, 90)));
         try
         {
             var input = JsonSerializer.Deserialize<PlanningInput>(state.InputPayload);
@@ -90,10 +90,12 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                     
                     var analysisTimer = Stopwatch.StartNew();
                     CareFlowAI.Orchestrator.Agents.AgentOutput? domainAnalysis = null;
-                    try 
+                    using var domainDeadline = CancellationTokenSource.CreateLinkedTokenSource(budget.Token);
+                    domainDeadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Planning:DomainTimeoutSeconds", 45), 1, 60)));
+                    try
                     {
                         domainAnalysis = await domainAnalysisAgent.AnalyzeRiskAsync(
-                            new CareFlowAI.Orchestrator.Agents.AgentInput { PatientId = input.PatientId, CurrentSymptoms = input.Symptoms }, budget.Token);
+                            new CareFlowAI.Orchestrator.Agents.AgentInput { PatientId = input.PatientId, CurrentSymptoms = input.Symptoms }, domainDeadline.Token).WaitAsync(domainDeadline.Token);
                         analysisTimer.Stop();
                         
                         if (string.IsNullOrWhiteSpace(domainAnalysis?.RiskLevel))
@@ -106,7 +108,21 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
                             trace.Events.Add(new("DomainAnalysis", "Completed", analysisTimer.ElapsedMilliseconds));
                         }
                     }
+                    catch (OperationCanceledException) when (!budget.IsCancellationRequested)
+                    {
+                        analysisTimer.Stop();
+                        failure = "DOMAIN_TIMEOUT";
+                        trace.Events.Add(new("DomainAnalysis", "TimedOut", analysisTimer.ElapsedMilliseconds));
+                    }
                     catch (OperationCanceledException) { throw; }
+                    catch (CareFlowAI.Orchestrator.Agents.DomainAnalysisException ex)
+                    {
+                        analysisTimer.Stop();
+                        trace.Events.Add(new("DomainAnalysis", ex.ErrorCode, analysisTimer.ElapsedMilliseconds));
+                        logger?.LogWarning("DomainAnalysisAgent failed: {ErrorCode}; provider HTTP status {ProviderStatusCode}",
+                            ex.ErrorCode, ex.ProviderStatusCode);
+                        domainAnalysis = null;
+                    }
                     catch (Exception ex)
                     {
                         analysisTimer.Stop();
@@ -117,7 +133,7 @@ public class PlanningAgentService(IPatientContextTool contextTool, IClinicalAsse
 
                     if (domainAnalysis == null || string.IsNullOrWhiteSpace(domainAnalysis.RiskLevel) || domainAnalysis.RiskLevel == "Unknown")
                     {
-                        failure = "PROVIDER_UNAVAILABLE";
+                        failure ??= "PROVIDER_UNAVAILABLE";
                     }
                     else
                     {

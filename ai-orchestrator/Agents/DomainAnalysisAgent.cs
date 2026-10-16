@@ -11,9 +11,11 @@ namespace CareFlowAI.Orchestrator.Agents
     public class DomainAnalysisException : Exception
     {
         public string ErrorCode { get; }
-        public DomainAnalysisException(string errorCode, string message) : base(message)
+        public int? ProviderStatusCode { get; }
+        public DomainAnalysisException(string errorCode, string message, int? providerStatusCode = null) : base(message)
         {
             ErrorCode = errorCode;
+            ProviderStatusCode = providerStatusCode;
         }
     }
 
@@ -89,22 +91,24 @@ Rules:
                 },
                 generationConfig = new
                 {
-                    responseMimeType = "application/json"
+                    responseMimeType = "application/json",
+                    thinkingConfig = _model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase)
+                        ? new { thinkingLevel = "low" } : null
                 }
             };
 
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var content = new StringContent(JsonSerializer.Serialize(requestBody, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }), Encoding.UTF8, "application/json");
 
             try
             {
                 if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey.Contains("YOUR_GEMINI_API_KEY"))
                 {
-                    throw new InvalidOperationException("Gemini API key is not configured. Set Gemini:ApiKey in appsettings.Development.json.");
+                    throw new DomainAnalysisException("DOMAIN_PROVIDER_NOT_CONFIGURED", "Configure Gemini__ApiKey on the backend service.");
                 }
 
                 if (_apiKey.StartsWith("sk-", StringComparison.Ordinal))
                 {
-                    throw new InvalidOperationException("GeminiApiKey is an OpenAI key (sk-...). This agent calls Google Gemini, which needs a Google AI Studio key.");
+                    throw new DomainAnalysisException("DOMAIN_PROVIDER_NOT_CONFIGURED", "A Google Gemini API key is required.");
                 }
 
                 int maxRetries = 2;
@@ -114,7 +118,7 @@ Rules:
                 {
                     using var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent");
                     request.Headers.TryAddWithoutValidation("x-goog-api-key", _apiKey);
-                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+                    request.Content = new StringContent(JsonSerializer.Serialize(requestBody, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }), Encoding.UTF8, "application/json");
 
                     response = await _httpClient.SendAsync(request, cancellationToken);
 
@@ -136,8 +140,7 @@ Rules:
                 if (response == null || !response.IsSuccessStatusCode)
                 {
                     var statusCode = response != null ? (int)response.StatusCode : 500;
-                    var reasonPhrase = response?.ReasonPhrase ?? "Unknown";
-                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API error ({statusCode} {reasonPhrase})");
+                    throw new DomainAnalysisException("DOMAIN_PROVIDER_UNAVAILABLE", $"Gemini API returned HTTP {statusCode}.", statusCode);
                 }
 
                 var responseString = await response.Content.ReadAsStringAsync(cancellationToken);

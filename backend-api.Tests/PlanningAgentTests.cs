@@ -58,6 +58,35 @@ public class PlanningAgentTests
     }
 
     [Fact]
+    public async Task Slow_domain_stage_is_bounded_without_fabricating_assessment()
+    {
+        var record = Record();
+        var state = PlanningAgentService.CreateRunningState(record, null);
+        var client = new ClientStub((_, _) => Task.FromResult(Assessment));
+        var domain = new DomainStub(async (_, token) => {
+            await Task.Delay(Timeout.Infinite, token);
+            return new CareFlowAI.Orchestrator.Agents.AgentOutput();
+        });
+        await new PlanningAgentService(Context(), client, domain,
+            Config(("Planning:DomainTimeoutSeconds", "1"))).RunAsync(record, state);
+        Assert.Equal("DOMAIN_TIMEOUT", Output(state).Execution.FailureCode);
+        Assert.Equal(0, client.Calls);
+        Assert.NotEqual("Completed", state.AgentStatus);
+    }
+
+    [Theory]
+    [InlineData("gemini-3.8-flash", true)]
+    [InlineData("gemini-3.1-flash-lite", true)]
+    [InlineData("gemini-2.5-flash", false)]
+    public void Assessment_requests_json_and_compatible_thinking_settings(string model, bool lowThinking)
+    {
+        var config = GeminiAssessmentClient.CreateGenerationConfig(model);
+        Assert.Equal("application/json", config.ResponseMimeType);
+        if (lowThinking) Assert.Equal(Mscc.GenerativeAI.Types.ThinkingLevel.Low, config.ThinkingConfig!.ThinkingLevel);
+        else Assert.Null(config.ThinkingConfig);
+    }
+
+    [Fact]
     public async Task Service_catches_domain_agent_errors_and_logs_without_sensitive_provider_text()
     {
         var record = Record();
