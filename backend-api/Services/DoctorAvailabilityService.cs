@@ -1,3 +1,4 @@
+
 using CareFlowAI.API.Data;
 using CareFlowAI.API.DTOs;
 using CareFlowAI.API.Models;
@@ -35,7 +36,8 @@ namespace CareFlowAI.API.Services
         }
 
         // Get availability records for a specific doctor
-        public async Task<List<DoctorAvailabilityDto>> GetByDoctorIdAsync(Guid doctorId)
+        public async Task<List<DoctorAvailabilityDto>> GetByDoctorIdAsync(
+            Guid doctorId)
         {
             return await _context.DoctorAvailabilities
                 .Include(a => a.Doctor)
@@ -87,9 +89,11 @@ namespace CareFlowAI.API.Services
             // Filter by specialization
             if (!string.IsNullOrWhiteSpace(specialization))
             {
+                var normalizedSpecialization = specialization.Trim();
+
                 query = query.Where(a =>
-                    a.Doctor.Specialization.ToLower()
-                        == specialization.ToLower());
+                    a.Doctor.Specialization.Trim().ToLower()
+                        == normalizedSpecialization.ToLower());
             }
 
             // Filter by doctor
