@@ -36,6 +36,21 @@ jobs:
     name: Build & Test Backend
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: careflow_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d careflow_db"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,7 +66,28 @@ jobs:
       - name: Build (Release)
         run: dotnet build backend-api/CareFlowAI.API.csproj --no-restore --configuration Release
 
+      - name: Create PostgreSQL test schema
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
+        run: |
+          mkdir -p /tmp/CareFlowDbInitializer
+          cd /tmp/CareFlowDbInitializer
+          dotnet new console --framework net8.0 --force
+          dotnet add reference "$GITHUB_WORKSPACE/backend-api/CareFlowAI.API.csproj"
+          cat > Program.cs <<'EOF'
+          using CareFlowAI.API.Data;
+          using Microsoft.EntityFrameworkCore;
+          var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+          var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connectionString).Options;
+          await using var db = new ApplicationDbContext(options);
+          await db.Database.EnsureCreatedAsync();
+          Console.WriteLine("PostgreSQL test schema created successfully.");
+          EOF
+          dotnet run
+
       - name: Run all tests
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=careflow_db;Username=postgres;Password=postgres"
         run: >
           dotnet test backend-api.Tests/CareFlowAI.API.Tests.csproj
           --configuration Release
