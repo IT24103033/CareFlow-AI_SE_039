@@ -322,6 +322,31 @@ namespace CareFlowAI.API.Controllers
             return Ok(response);
         }
 
+        // Aggregate-only dashboard: no patient identifiers or clinical text are returned.
+        [Authorize(Roles = "Doctor")]
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
+        {
+            var access = CheckStaffAccess();
+            if (access != null) return access;
+            var now = DateTime.UtcNow;
+            var start = now.Date.AddDays(-6);
+            var query = _context.TriageRecords.AsNoTracking();
+            var groups = await query.GroupBy(t => new { t.TriageStatus, t.SeverityLevel })
+                .Select(g => new { status = g.Key.TriageStatus, severity = g.Key.SeverityLevel, count = g.Count() })
+                .ToListAsync(cancellationToken);
+            var daily = await query.Where(t => t.CreatedAt >= start && t.CreatedAt <= now)
+                .GroupBy(t => t.CreatedAt.Date)
+                .Select(g => new { date = g.Key, count = g.Count() })
+                .ToListAsync(cancellationToken);
+            var trend = Enumerable.Range(0, 7).Select(offset => new
+            {
+                date = start.AddDays(offset).ToString("yyyy-MM-dd"),
+                count = daily.FirstOrDefault(d => d.date == start.AddDays(offset))?.count ?? 0
+            });
+            return Ok(new { generatedAt = now, scope = "All cases visible in the doctor review queue", groups, trend });
+        }
+
         // Separate staff endpoints preserve the existing mobile list response contract.
         [Authorize(Roles = "Doctor")]
         [HttpGet("review-queue")]
