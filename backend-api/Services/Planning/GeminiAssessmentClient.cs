@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Mscc.GenerativeAI;
+using Mscc.GenerativeAI.Types;
 
 namespace CareFlowAI.API.Services;
 
@@ -12,9 +13,16 @@ public class GeminiAssessmentClient(IConfiguration configuration) : IClinicalAss
         if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(modelName))
             throw new AssessmentConfigurationException();
         var model = new GoogleAI(key).GenerativeModel(modelName);
-        var response = await model.GenerateContent(BuildPrompt(input), cancellationToken: cancellationToken);
+        var response = await model.GenerateContent(BuildPrompt(input), generationConfig: CreateGenerationConfig(modelName), cancellationToken: cancellationToken);
         return response.Text ?? string.Empty;
     }
+
+    public static GenerationConfig CreateGenerationConfig(string modelName) => new()
+    {
+        ResponseMimeType = "application/json",
+        ThinkingConfig = modelName.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase)
+            ? new ThinkingConfig { ThinkingLevel = ThinkingLevel.Low } : null
+    };
 
     public static string BuildPrompt(ClinicalAssessmentInput input) => $$"""
         Prepare a triage recommendation for review by a clinician.

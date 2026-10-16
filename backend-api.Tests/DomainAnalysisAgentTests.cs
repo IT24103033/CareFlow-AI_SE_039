@@ -108,6 +108,32 @@ namespace CareFlowAI.API.Tests
             Assert.Equal("DOMAIN_INVALID_OUTPUT", ex.ErrorCode);
         }
 
+        [Theory]
+        [InlineData(400)]
+        [InlineData(401)]
+        [InlineData(403)]
+        [InlineData(404)]
+        [InlineData(429)]
+        [InlineData(503)]
+        public async Task Provider_failure_exposes_status_without_response_secrets(int status)
+        {
+            var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage((HttpStatusCode)status)
+            { Content = new StringContent("private-provider-body") });
+            var agent = new DomainAnalysisAgent("private-key", new StubHistoryTool(), "test-model", new HttpClient(handler));
+            var error = await Assert.ThrowsAsync<DomainAnalysisException>(() => agent.AnalyzeRiskAsync(new AgentInput()));
+            Assert.Equal(status, error.ProviderStatusCode);
+            Assert.DoesNotContain("private", error.Message);
+        }
+
+        [Fact]
+        public async Task Missing_key_is_configuration_failure_without_provider_call()
+        {
+            var handler = new FakeHttpMessageHandler(_ => throw new Exception("Must not call provider"));
+            var agent = new DomainAnalysisAgent("", new StubHistoryTool(), "test-model", new HttpClient(handler));
+            var error = await Assert.ThrowsAsync<DomainAnalysisException>(() => agent.AnalyzeRiskAsync(new AgentInput()));
+            Assert.Equal("DOMAIN_PROVIDER_NOT_CONFIGURED", error.ErrorCode);
+        }
+
         [Fact]
         public async Task Agent_observes_cancellation_token()
         {
