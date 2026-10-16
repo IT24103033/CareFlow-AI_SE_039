@@ -33,18 +33,20 @@ class _AppointmentAvailabilityScreenState
 
   bool isLoading = false;
   bool isBooking = false;
+  bool hasSearched = false;
 
   List<dynamic> availableDoctors = [];
   List<dynamic> availableSlots = [];
 
   Map<String, dynamic>? selectedDoctor;
 
-  final List<String> specializations = [
-    'Cardiology',
-    'Neurology',
-    'General Medicine',
-    'Pediatrics',
-  ];
+  // Display labels mapped to the values expected by the backend.
+  final Map<String, String> specializations = {
+    'Cardiology': 'Cardiologist',
+    'Neurology': 'Neurologist',
+    'General Medicine': 'General Practitioner',
+    'Pediatrics': 'Pediatrics',
+  };
 
   // ---------------------------------------------------------
   // Pastel colors
@@ -127,10 +129,12 @@ class _AppointmentAvailabilityScreenState
   // ---------------------------------------------------------
 
   Future<void> _selectDate() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime.now(),
+      initialDate: selectedDate.isBefore(today) ? today : selectedDate,
+      firstDate: today,
       lastDate: DateTime(2030, 12, 31),
       builder: (context, child) {
         return Theme(
@@ -153,6 +157,7 @@ class _AppointmentAvailabilityScreenState
         selectedDoctor = null;
         availableDoctors = [];
         availableSlots = [];
+        hasSearched = false;
       });
     }
   }
@@ -164,14 +169,19 @@ class _AppointmentAvailabilityScreenState
   Future<void> _searchDoctors() async {
     setState(() {
       isLoading = true;
+      hasSearched = true;
       selectedDoctor = null;
       availableSlots = [];
       availableDoctors = [];
     });
 
     try {
+      final specializationToSearch = selectedSpecialization == null
+          ? null
+          : specializations[selectedSpecialization!];
+
       final doctors = await _apiService.searchDoctorAvailability(
-        specialization: selectedSpecialization,
+        specialization: specializationToSearch,
         date: _formatDate(selectedDate),
       );
 
@@ -311,10 +321,6 @@ class _AppointmentAvailabilityScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: pageBackground,
-
-      // -----------------------------------------------------
-      // App bar
-      // -----------------------------------------------------
       appBar: AppBar(
         backgroundColor: white,
         foregroundColor: textDark,
@@ -324,16 +330,12 @@ class _AppointmentAvailabilityScreenState
           style: TextStyle(color: textDark, fontWeight: FontWeight.bold),
         ),
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // -------------------------------------------------
             // Header
-            // -------------------------------------------------
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(22),
@@ -360,9 +362,7 @@ class _AppointmentAvailabilityScreenState
                       size: 28,
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,9 +389,7 @@ class _AppointmentAvailabilityScreenState
 
             const SizedBox(height: 24),
 
-            // -------------------------------------------------
             // Search card
-            // -------------------------------------------------
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -420,9 +418,7 @@ class _AppointmentAvailabilityScreenState
 
                   const SizedBox(height: 18),
 
-                  // -------------------------------------------
                   // Specialization
-                  // -------------------------------------------
                   const Text(
                     'Specialization',
                     style: TextStyle(
@@ -460,7 +456,7 @@ class _AppointmentAvailabilityScreenState
                         'Select specialization',
                         style: TextStyle(color: textLight, fontSize: 14),
                       ),
-                      items: specializations.map((specialization) {
+                      items: specializations.keys.map((specialization) {
                         return DropdownMenuItem<String>(
                           value: specialization,
                           child: Text(specialization),
@@ -472,6 +468,7 @@ class _AppointmentAvailabilityScreenState
                           selectedDoctor = null;
                           availableDoctors = [];
                           availableSlots = [];
+                          hasSearched = false;
                         });
                       },
                     ),
@@ -479,9 +476,7 @@ class _AppointmentAvailabilityScreenState
 
                   const SizedBox(height: 18),
 
-                  // -------------------------------------------
-                  // Date
-                  // -------------------------------------------
+                  // Appointment date
                   const Text(
                     'Appointment Date',
                     style: TextStyle(
@@ -521,9 +516,7 @@ class _AppointmentAvailabilityScreenState
                               size: 19,
                             ),
                           ),
-
                           const SizedBox(width: 12),
-
                           Text(
                             _formatDate(selectedDate),
                             style: const TextStyle(
@@ -532,9 +525,7 @@ class _AppointmentAvailabilityScreenState
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-
                           const Spacer(),
-
                           const Icon(Icons.keyboard_arrow_down, color: textMid),
                         ],
                       ),
@@ -543,9 +534,7 @@ class _AppointmentAvailabilityScreenState
 
                   const SizedBox(height: 20),
 
-                  // -------------------------------------------
                   // Search button
-                  // -------------------------------------------
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -577,9 +566,7 @@ class _AppointmentAvailabilityScreenState
 
             const SizedBox(height: 26),
 
-            // -------------------------------------------------
-            // Loading
-            // -------------------------------------------------
+            // Loading indicator
             if (isLoading)
               const Center(
                 child: Padding(
@@ -588,9 +575,7 @@ class _AppointmentAvailabilityScreenState
                 ),
               ),
 
-            // -------------------------------------------------
-            // Doctors
-            // -------------------------------------------------
+            // Available doctors
             if (!isLoading && availableDoctors.isNotEmpty) ...[
               const Text(
                 'Available Doctors',
@@ -600,32 +585,27 @@ class _AppointmentAvailabilityScreenState
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              ...availableDoctors.map((doctor) => _doctorCard(doctor)),
+              ...availableDoctors.map(
+                (doctor) =>
+                    _doctorCard(Map<String, dynamic>.from(doctor as Map)),
+              ),
             ],
 
-            // -------------------------------------------------
-            // No doctors
-            // -------------------------------------------------
-            if (!isLoading &&
-                availableDoctors.isEmpty &&
-                selectedSpecialization != null)
+            // Empty search results.
+            // The message matches the existing widget test.
+            if (!isLoading && hasSearched && availableDoctors.isEmpty)
               _emptyState(
                 icon: Icons.person_search_outlined,
                 title: 'No doctors found',
                 message: 'No doctors are available for the selected date.',
               ),
 
-            // -------------------------------------------------
             // Available slots
-            // -------------------------------------------------
             if (selectedDoctor != null &&
                 !isLoading &&
                 availableSlots.isNotEmpty) ...[
               const SizedBox(height: 18),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -651,9 +631,7 @@ class _AppointmentAvailabilityScreenState
                             color: greenDark,
                           ),
                         ),
-
                         const SizedBox(width: 12),
-
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -674,18 +652,17 @@ class _AppointmentAvailabilityScreenState
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
-                    ...availableSlots.map((slot) => _slotCard(slot)),
+                    ...availableSlots.map(
+                      (slot) =>
+                          _slotCard(Map<String, dynamic>.from(slot as Map)),
+                    ),
                   ],
                 ),
               ),
             ],
 
-            // -------------------------------------------------
             // No slots
-            // -------------------------------------------------
             if (selectedDoctor != null && !isLoading && availableSlots.isEmpty)
               _emptyState(
                 icon: Icons.event_busy_outlined,
@@ -705,17 +682,14 @@ class _AppointmentAvailabilityScreenState
 
   Widget _doctorCard(Map<String, dynamic> doctor) {
     final doctorName = doctor['doctorName']?.toString() ?? 'Doctor';
-
     final specialization = doctor['specialization']?.toString() ?? '';
-
     final date = doctor['date']?.toString() ?? '';
-
     final startTime = doctor['startTime']?.toString() ?? '';
-
     final endTime = doctor['endTime']?.toString() ?? '';
 
     final isSelected =
-        selectedDoctor?['doctorId'].toString() == doctor['doctorId'].toString();
+        selectedDoctor?['doctorId']?.toString() ==
+        doctor['doctorId']?.toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -741,10 +715,6 @@ class _AppointmentAvailabilityScreenState
           padding: const EdgeInsets.all(17),
           child: Row(
             children: [
-              // ---------------------------------------------
-              // Doctor icon
-              // ---------------------------------------------
-
               Container(
                 width: 56,
                 height: 56,
@@ -758,12 +728,7 @@ class _AppointmentAvailabilityScreenState
                   size: 30,
                 ),
               ),
-
               const SizedBox(width: 15),
-
-              // ---------------------------------------------
-              // Doctor information
-              // ---------------------------------------------
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -776,9 +741,7 @@ class _AppointmentAvailabilityScreenState
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 5),
-
                     Text(
                       specialization,
                       style: const TextStyle(
@@ -787,9 +750,7 @@ class _AppointmentAvailabilityScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-
                     const SizedBox(height: 7),
-
                     Row(
                       children: [
                         const Icon(
@@ -797,9 +758,7 @@ class _AppointmentAvailabilityScreenState
                           color: textLight,
                           size: 13,
                         ),
-
                         const SizedBox(width: 5),
-
                         Expanded(
                           child: Text(
                             '$date • ${_formatTime(startTime)} - ${_formatTime(endTime)}',
@@ -814,12 +773,7 @@ class _AppointmentAvailabilityScreenState
                   ],
                 ),
               ),
-
               const SizedBox(width: 8),
-
-              // ---------------------------------------------
-              // Arrow
-              // ---------------------------------------------
               Container(
                 width: 34,
                 height: 34,
@@ -846,7 +800,6 @@ class _AppointmentAvailabilityScreenState
 
   Widget _slotCard(Map<String, dynamic> slot) {
     final startTime = slot['startTime']?.toString() ?? '';
-
     final endTime = slot['endTime']?.toString() ?? '';
 
     return Container(
@@ -920,9 +873,7 @@ class _AppointmentAvailabilityScreenState
             ),
             child: Icon(icon, color: blueDark, size: 28),
           ),
-
           const SizedBox(height: 12),
-
           Text(
             title,
             style: const TextStyle(
@@ -931,9 +882,7 @@ class _AppointmentAvailabilityScreenState
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 5),
-
           Text(
             message,
             textAlign: TextAlign.center,
