@@ -28,7 +28,6 @@ namespace CareFlowAI.API.Controllers
 
         // GET: api/patientprofiles/{id}
         [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
-        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
         {
@@ -50,6 +49,7 @@ namespace CareFlowAI.API.Controllers
             return Ok(patient);
         }
 
+        [Authorize(Roles = "Patient,Doctor,Staff,Admin")]
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {

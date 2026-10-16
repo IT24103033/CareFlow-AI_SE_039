@@ -110,7 +110,7 @@ const ManagePatients = () => {
 
       setAiResponse(data);
     } catch {
-      setAiError('Could not reach the API at http://localhost:5241. Start the backend, then try again.');
+      setAiError('Could not reach the server. Check your connection and try again.');
     } finally {
       setAiLoading(false);
     }

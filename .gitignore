@@ -36,8 +36,10 @@ build.nosync/
 
 # Xcode & iOS/macOS ephemeral build files
 **/ios/Flutter/ephemeral/
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated*.xcconfig
+**/ios/Flutter/flutter_export_environment*.sh
+output/
+tmp/
 **/ios/Pods/
 **/ios/.symlinks/
 **/macos/Flutter/ephemeral/
