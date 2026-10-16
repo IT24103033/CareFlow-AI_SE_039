@@ -9,19 +9,19 @@ export default function AppointmentCalendar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const loadAvailability = async () => {
+  const loadAvailability = async (filters = { date, specialization }) => {
     setLoading(true);
     setError('');
 
     try {
       const params = new URLSearchParams();
 
-      if (specialization.trim()) {
-        params.append('specialization', specialization.trim());
+      if (filters.specialization.trim()) {
+        params.append('specialization', filters.specialization.trim());
       }
 
-      if (date) {
-        params.append('date', date);
+      if (filters.date) {
+        params.append('date', filters.date);
       }
 
       const query = params.toString();
@@ -52,7 +52,7 @@ export default function AppointmentCalendar() {
   const clearFilters = () => {
     setDate('');
     setSpecialization('');
-    setTimeout(() => loadAvailability(), 0);
+    loadAvailability({ date: '', specialization: '' });
   };
 
   return (
@@ -66,7 +66,7 @@ export default function AppointmentCalendar() {
         <button
           type="button"
           className="refresh-button"
-          onClick={loadAvailability}
+          onClick={() => loadAvailability()}
           disabled={loading}
         >
           {loading ? 'Loading...' : 'Refresh'}
@@ -98,7 +98,7 @@ export default function AppointmentCalendar() {
         <button
           type="button"
           className="search-button"
-          onClick={loadAvailability}
+          onClick={() => loadAvailability()}
           disabled={loading}
         >
           Search

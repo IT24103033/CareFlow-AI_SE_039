@@ -31,6 +31,7 @@ const staffLinks = [
   { path: '/staff/pharmacy', label: 'Pharmacy & Inventory', icon: '💊' },
   { path: '/staff/prescriptions', label: 'Prescriptions', icon: '📋' },
   { path: '/staff/history-search', label: 'History Search', icon: '🔍' },
+  { path: '/staff/appointments', label: 'Appointments', icon: '📅' },
 ];
 
 const adminLinks = [
@@ -124,6 +125,8 @@ function App() {
               path="history-search"
               element={<PatientHistorySearch />}
             />
+
+            <Route path="appointments" element={<AppointmentCalendar />} />
 
             <Route
               path="*"
