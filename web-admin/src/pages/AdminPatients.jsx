@@ -11,12 +11,23 @@ const AdminPatients = () => {
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
 
+  const [loading, setLoading] = useState(true);
+
   const fetchPatients = async () => {
+    setLoading(true);
+    setError('');
     try {
       const res = await apiFetch('/api/PatientProfiles');
-      if (res.ok) setPatients(await res.json());
+      if (res.ok) {
+        setPatients(await res.json());
+      } else {
+        setError('Failed to load patient records.');
+      }
     } catch (e) {
       console.error('Failed to fetch patients', e);
+      setError('Could not connect to the server. If the server is starting up, please wait a moment.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,22 +42,25 @@ const AdminPatients = () => {
       fetchPatients();
       return;
     }
+    setLoading(true);
     try {
       const res = await apiFetch(`/api/PatientProfiles/search?name=${encodeURIComponent(term)}`);
       if (res.ok) setPatients(await res.json());
     } catch (e) {
       console.error('Failed to search', e);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (patient) => {
     const name = patient.fullName || 'this patient';
-    if (!window.confirm(`Remove ${name} from hospital records? This also clears their admissions.`)) {
+    if (!window.confirm(`Remove ${name} from hospital records? This deactivates the patient record and discharges active admissions.`)) {
       return;
     }
     setError('');
     try {
-      const res = await fetch(`http://localhost:5241/api/PatientProfiles/${patient.id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/PatientProfiles/${patient.id}`, { method: 'DELETE' });
       if (!res.ok) {
         setError(await res.text() || 'Could not delete patient.');
         return;
@@ -65,6 +79,7 @@ const AdminPatients = () => {
       </div>
       <p className="records-hint">Update demographics and medical history, or remove a record if it was created in error.</p>
       {error && <p className="ai-error">{error}</p>}
+      {loading && <p className="records-hint" style={{ padding: '20px 0' }}>Loading patient records... (this may take a moment if the server is waking up)</p>}
 
       <div className="search-bar-container">
         <span className="search-icon">🔍</span>
@@ -77,25 +92,31 @@ const AdminPatients = () => {
         />
       </div>
 
-      <div className="patients-grid">
-        {patients.map((p) => (
-          <div className="patient-tile" key={p.id}>
-            <div className="patient-tile-header">
-              <div className="avatar"></div>
-              <h3 className="patient-name">{p.fullName}</h3>
+      {!loading && patients.length === 0 && !error && (
+        <p className="records-hint" style={{ padding: '20px 0' }}>No patient records found.</p>
+      )}
+
+      {!loading && patients.length > 0 && (
+        <div className="patients-grid">
+          {patients.map((p) => (
+            <div className="patient-tile" key={p.id}>
+              <div className="patient-tile-header">
+                <div className="avatar"></div>
+                <h3 className="patient-name">{p.fullName}</h3>
+              </div>
+              <div className="patient-tile-body">
+                <p><strong>DOB:</strong> {String(p.dateOfBirth || '').slice(0, 10)}</p>
+                <p><strong>Blood Group:</strong> {p.bloodGroup || 'N/A'}</p>
+                <p><strong>History:</strong> {p.medicalHistorySummary || 'N/A'}</p>
+              </div>
+              <div className="patient-tile-actions">
+                <button className="admit-btn" onClick={() => setEditing(p)}>Edit</button>
+                <button className="danger-btn" onClick={() => handleDelete(p)}>Remove</button>
+              </div>
             </div>
-            <div className="patient-tile-body">
-              <p><strong>DOB:</strong> {String(p.dateOfBirth || '').slice(0, 10)}</p>
-              <p><strong>Blood Group:</strong> {p.bloodGroup || 'N/A'}</p>
-              <p><strong>History:</strong> {p.medicalHistorySummary || 'N/A'}</p>
-            </div>
-            <div className="patient-tile-actions">
-              <button className="admit-btn" onClick={() => setEditing(p)}>Edit</button>
-              <button className="danger-btn" onClick={() => handleDelete(p)}>Remove</button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {isRegisterOpen && (
         <div className="modal-overlay">

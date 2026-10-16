@@ -128,6 +128,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 public class AuthenticationAndAuthorizationIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
+    [Fact]
+    public async Task PatientProfileById_RequiresAuthentication()
+    {
+        var response = await _client.GetAsync($"/api/PatientProfiles/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private readonly HttpClient _client;
 
     public AuthenticationAndAuthorizationIntegrationTests(CustomWebApplicationFactory factory)
